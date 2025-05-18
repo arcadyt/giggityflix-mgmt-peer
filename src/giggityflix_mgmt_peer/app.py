@@ -1,6 +1,7 @@
 # src/peer/app.py
 from typing import Dict, Any
 
+from .api.app import create_fastapi_app
 from .config import load_config
 from .core.di import container
 from .core.resource_pool import ResourcePoolManager, MetricsCollector
@@ -33,6 +34,9 @@ class ApplicationFactory:
 
         # Register services in DI container
         ApplicationFactory._register_services(services)
+
+        # Create FastAPI app
+        services["api"] = create_fastapi_app()
 
         # Return the application context
         return services

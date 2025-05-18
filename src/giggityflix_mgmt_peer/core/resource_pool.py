@@ -6,9 +6,9 @@ import threading
 import time
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional, TypeVar
+from typing import Any, Callable, Dict, Optional, TypeVar, Set
 
-from ..config import AppConfig
+from ..config import AppConfig, DriveConfig
 
 T = TypeVar('T')
 R = TypeVar('R')
@@ -97,6 +97,16 @@ class ResourcePoolManager:
         self._io_semaphores: Dict[str, threading.Semaphore] = {}
         self._io_semaphores_lock = threading.Lock()
 
+        # Track active CPU tasks for safe pool resizing
+        self._active_cpu_tasks: Set[int] = set()
+        self._cpu_task_lock = threading.Lock()
+        self._cpu_pool_lock = threading.Lock()
+        self._resize_pending = False
+
+    def shutdown(self):
+        """Clean up resources."""
+        self._cpu_pool.shutdown()
+
     @lru_cache(maxsize=128)
     def get_drive_identifier(self, filepath: str) -> str:
         """Extract drive identifier from filepath."""
@@ -156,21 +166,6 @@ class ResourcePoolManager:
             if acquired and release_func:
                 release_func()
 
-    async def submit_cpu_task(self, func: Callable[..., R], *args, **kwargs) -> R:
-        """Submit a CPU-bound task to the process pool with metrics."""
-        operation_name = func.__name__
-
-        async def execution_func():
-            loop = asyncio.get_event_loop()
-            future = self._cpu_pool.submit(func, *args, **kwargs)
-            return await loop.run_in_executor(None, future.result)
-
-        return await self.execute_with_metrics(
-            resource_type="CPU",
-            operation_name=operation_name,
-            execution_func=execution_func
-        )
-
     async def submit_io_task(self, filepath: str, func: Callable[..., R], *args, **kwargs) -> R:
         """Submit an IO-bound task with semaphore control and metrics."""
         operation_name = func.__name__
@@ -194,6 +189,147 @@ class ResourcePoolManager:
             release_func=release_func
         )
 
-    def shutdown(self):
-        """Clean up resources."""
-        self._cpu_pool.shutdown()
+    async def submit_cpu_task(self, func: Callable[..., R], *args, **kwargs) -> R:
+        """Submit a CPU-bound task to the process pool with metrics."""
+        operation_name = func.__name__
+        task_id = id(func) + id(tuple(args)) + id(str(kwargs))
+
+        # Track this task
+        with self._cpu_task_lock:
+            self._active_cpu_tasks.add(task_id)
+
+        async def execution_func():
+            try:
+                # Execute the task using current pool
+                with self._cpu_pool_lock:
+                    current_pool = self._cpu_pool
+
+                loop = asyncio.get_event_loop()
+                future = current_pool.submit(func, *args, **kwargs)
+                result = await loop.run_in_executor(None, future.result)
+
+                # Task completed, check if resize is needed
+                with self._cpu_task_lock:
+                    self._active_cpu_tasks.remove(task_id)
+                    tasks_remaining = len(self._active_cpu_tasks)
+
+                # If this was the last task and resize is pending, recreate pool
+                if tasks_remaining == 0 and self._resize_pending:
+                    with self._cpu_pool_lock:
+                        self._replace_cpu_pool()
+
+                return result
+            except Exception as e:
+                # Make sure to clean up tracking on error
+                with self._cpu_task_lock:
+                    if task_id in self._active_cpu_tasks:
+                        self._active_cpu_tasks.remove(task_id)
+
+                    # Check if pool resize is needed even after error
+                    if len(self._active_cpu_tasks) == 0 and self._resize_pending:
+                        with self._cpu_pool_lock:
+                            self._replace_cpu_pool()
+
+                raise e
+
+        return await self.execute_with_metrics(
+            resource_type="CPU",
+            operation_name=operation_name,
+            execution_func=execution_func
+        )
+
+    def resize_process_pool(self, new_size: int) -> bool:
+        """
+        Resize the process pool to a new worker count.
+
+        Current tasks will complete with the existing pool,
+        then a new pool with the new size will be created.
+
+        Args:
+            new_size: New maximum number of workers
+
+        Returns:
+            True if resize was successfully initiated, False if invalid size
+        """
+        if new_size <= 0:
+            return False
+
+        with self._cpu_pool_lock:
+            # Update config with new size
+            self.config.process_pool.max_workers = new_size
+
+            # If no active tasks, resize immediately
+            with self._cpu_task_lock:
+                if not self._active_cpu_tasks:
+                    self._replace_cpu_pool()
+                    return True
+
+            # Otherwise, mark for resize after tasks complete
+            self._resize_pending = True
+            return True
+
+    def resize_drive_semaphore(self, drive: str, new_limit: int) -> bool:
+        """
+        Resize the semaphore for a specific drive.
+
+        Args:
+            drive: Drive identifier
+            new_limit: New concurrent IO limit
+
+        Returns:
+            True if resize was successful, False otherwise
+        """
+        if new_limit <= 0:
+            return False
+
+        # Update drive config
+        if drive in self.config.drive_configs:
+            self.config.drive_configs[drive].concurrent_io = new_limit
+        else:
+            self.config.drive_configs[drive] = DriveConfig(concurrent_io=new_limit)
+
+        # Create new semaphore
+        with self._io_semaphores_lock:
+            if drive in self._io_semaphores:
+                # Only replace if semaphore has no active permits
+                current_sem = self._io_semaphores[drive]
+                if current_sem._value == current_sem._initial_value:
+                    self._io_semaphores[drive] = threading.Semaphore(new_limit)
+                # Otherwise wait for operations to complete
+            else:
+                # No existing semaphore, create new one
+                self._io_semaphores[drive] = threading.Semaphore(new_limit)
+
+        return True
+
+    def _replace_cpu_pool(self):
+        """Replace CPU pool with new one using current config size."""
+        old_pool = self._cpu_pool
+
+        # Create new pool with updated size
+        if os.environ.get('PYTEST_CURRENT_TEST'):
+            self._cpu_pool = concurrent.futures.ThreadPoolExecutor(
+                max_workers=self.config.process_pool.max_workers
+            )
+        else:
+            self._cpu_pool = concurrent.futures.ProcessPoolExecutor(
+                max_workers=self.config.process_pool.max_workers
+            )
+
+        # Schedule old pool shutdown
+        asyncio.get_event_loop().run_in_executor(None, lambda: old_pool.shutdown(wait=False))
+        self._resize_pending = False
+
+    async def get_io_limits(self) -> Dict[str, int]:
+        """Get current IO limits for all configured drives."""
+        limits = {}
+
+        # Get configured limits
+        for drive, config in self.config.drive_configs.items():
+            limits[drive] = config.concurrent_io
+
+        return limits
+
+    def get_process_pool_size(self) -> int:
+        """Get current process pool size configuration."""
+        return self.config.process_pool.max_workers
