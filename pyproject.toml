@@ -1,0 +1,40 @@
+[tool.poetry]
+name = "giggityflix-mgmt-peer"
+version = "0.1.0"
+description = "Resource management microservice with AOP"
+readme = "README.md"
+packages = [{ include = "giggityflix_mgmt_peer", from = "src" }]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+opencv-python = "^4.6.0"
+numpy = "^1.23.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3.5"
+pytest-asyncio = "^0.23.5.post1"
+pytest-mock = "^3.14.0"
+pytest-cov = "^6.1.1"
+black = "^24.10.0"
+flake8 = "^7.2.0"
+mypy = "^1.8.0"
+isort = "^5.13.2"
+pre-commit = "^3.8.0"
+cloudpickle = "^2.2.1"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 88
+target-version = ["py311"]
+
+[tool.isort]
+profile = "black"
+line_length = 88
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+asyncio_mode = "auto"
