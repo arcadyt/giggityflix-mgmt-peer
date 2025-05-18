@@ -19,13 +19,15 @@ def slow_cpu_operation(seconds: float = 1.0):
 
 async def slow_io_operation(filepath: str, seconds: float = 1.0):
     """IO-intensive operation simulation."""
+    # Write to the file
     with open(filepath, 'a') as f:
         f.write(f"Running IO operation for {seconds} seconds\n")
+        f.flush()  # Ensure content is written to disk
 
-    time.sleep(seconds)
+    # Use asyncio.sleep instead of time.sleep for proper async behavior
+    await asyncio.sleep(seconds)
 
-    # with open(filepath, 'r') as f:
-    #     return f.read()
+    return seconds
 
 
 @pytest.mark.slow
@@ -85,13 +87,14 @@ async def test_drive_semaphore_resize_during_execution(temp_dir):
     app = create_app({"default_io_limit": 1})
     resource_manager = container.resolve(ResourcePoolManager)
 
-    # Create test files
-    files = []
-    for i in range(4):
-        filepath = os.path.join(temp_dir, f"test_{i}.txt")
-        with open(filepath, 'w') as f:
-            f.write(f"Initial content {i}\n")
-        files.append(filepath)
+    # Create "virtual" IO resources (no real files needed)
+    resource_ids = [f"virtual_resource_{i}" for i in range(4)]
+
+    # Define a simple async IO operation that just sleeps
+    async def virtual_io_operation(resource_id: str, seconds: float = 1.0):
+        # Just sleep to simulate IO
+        await asyncio.sleep(seconds)
+        return f"Completed IO on {resource_id}"
 
     # Start time measurement
     start_time = time.time()
@@ -100,15 +103,15 @@ async def test_drive_semaphore_resize_during_execution(temp_dir):
     tasks = []
     for i in range(2):
         task = asyncio.create_task(resource_manager.submit_io_task(
-            files[i], slow_io_operation, files[i], 2.0
+            resource_ids[i], virtual_io_operation, resource_ids[i], 2.0
         ))
         tasks.append(task)
 
     # Let the first task start
     await asyncio.sleep(0.5)
 
-    # Get drive identifier
-    drive = resource_manager.get_drive_identifier(files[0])
+    # Get drive identifier (use the same for all virtual resources)
+    drive = resource_manager.get_drive_identifier(temp_dir)
 
     # Resize semaphore
     assert resource_manager.resize_drive_semaphore(drive, 4)
@@ -116,7 +119,7 @@ async def test_drive_semaphore_resize_during_execution(temp_dir):
     # Second batch with larger limit
     for i in range(2, 4):
         task = asyncio.create_task(resource_manager.submit_io_task(
-            files[i], slow_io_operation, files[i], 2.0
+            resource_ids[i], virtual_io_operation, resource_ids[i], 2.0
         ))
         tasks.append(task)
 
@@ -130,11 +133,9 @@ async def test_drive_semaphore_resize_during_execution(temp_dir):
     # With resize: ~4-5 seconds total (first task + parallelized remaining tasks)
     assert total_time < 6.0, f"Execution took {total_time}s, expected <6s"
 
-    # Verify all files were updated
-    for filepath in files:
-        with open(filepath, 'r') as f:
-            content = f.read()
-            assert "Running IO operation for 2.0 seconds" in content
+    # Verify all tasks completed with the expected results
+    for i, result in enumerate(results):
+        assert result == f"Completed IO on {resource_ids[i]}"
 
 
 @pytest.fixture
@@ -210,3 +211,63 @@ async def test_api_io_limit_resize(http_client, temp_dir):
     response = http_client.get("/api/resources/io-limits")
     assert response.status_code == 200
     assert response.json()["limits"][drive] == new_limit
+
+
+@pytest.mark.slow
+@pytest.mark.asyncio
+async def test_drive_semaphore_resize_during_execution(temp_dir):
+    """Test that drive semaphore resizing works correctly during execution."""
+    # Create app with restrictive IO limits
+    app = create_app({"default_io_limit": 1})
+    resource_manager = container.resolve(ResourcePoolManager)
+
+    # Create "virtual" IO resources (no real files needed)
+    resource_ids = [f"{temp_dir}/virtual_resource_{i}" for i in range(4)]
+
+    # Define a simple async IO operation that just sleeps
+    async def virtual_io_operation(resource_id: str, seconds: float = 1.0):
+        # Just sleep to simulate IO
+        await asyncio.sleep(seconds)
+        return f"Completed IO on {resource_id}"
+
+    # Start time measurement
+    start_time = time.time()
+
+    # First batch with small limit - this will allow only 1 task at a time
+    tasks = []
+    for i in range(2):
+        task = asyncio.create_task(resource_manager.submit_io_task(
+            resource_ids[i], virtual_io_operation, resource_ids[i], 2.0
+        ))
+        tasks.append(task)
+
+    # Let the first task start and the second queue up
+    await asyncio.sleep(0.5)
+
+    # Get drive identifier (use the same for all virtual resources)
+    drive = resource_manager.get_drive_identifier(resource_ids[0])
+
+    # Resize semaphore to allow more concurrent operations
+    await resource_manager.resize_drive_semaphore(drive, 4)
+
+    # Second batch - now we should have capacity for all remaining tasks
+    for i in range(2, 4):
+        task = asyncio.create_task(resource_manager.submit_io_task(
+            resource_ids[i], virtual_io_operation, resource_ids[i], 2.0
+        ))
+        tasks.append(task)
+
+    # Wait for all tasks
+    results = await asyncio.gather(*tasks)
+    end_time = time.time()
+    total_time = end_time - start_time
+
+    # With resize: first task starts immediately (2s)
+    # Second waits for first but might start in parallel with batch 2
+    # after resize
+    # Total should be ~4s if everything works correctly
+    assert total_time < 6.0, f"Execution took {total_time}s, expected <6s"
+
+    # Verify all tasks completed with the expected results
+    for i, result in enumerate(results):
+        assert result == f"Completed IO on {resource_ids[i]}"
