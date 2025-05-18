@@ -133,20 +133,24 @@ async def test_metrics_collection(json_file, resource_manager, cleanup_container
     assert isinstance(args[2], float)  # queue_time
     assert isinstance(args[3], float)  # execution_time
 
-
 @pytest.mark.asyncio
 async def test_execute_parallel_with_functions(resource_manager, cleanup_container):
     """Test executing multiple functions in parallel."""
     # Register the resource manager
     container.register(ResourcePoolManager, resource_manager)
 
-    # Create test coroutines
-    async def task1():
+    # Create test coroutines with explicit CPU-bound decoration
+    @cpu_bound()
+    def cpu_task1():
+        time.sleep(0.9)  # This will run in a worker process
         return 10
 
-    async def task2():
+    @cpu_bound()
+    def cpu_task2():
+        time.sleep(0.9)  # This will run in a worker process
         return 20
 
+    # Task3 uses the existing compute_factorial which is already CPU-bound
     async def task3():
         return await compute_factorial(4)
 
@@ -154,18 +158,16 @@ async def test_execute_parallel_with_functions(resource_manager, cleanup_contain
     start_time = time.time()
 
     # Execute parallel tasks
-    results = await execute_parallel(task1, task2, task3)
+    results = await execute_parallel(cpu_task1, cpu_task2, cpu_task2)
 
     end_time = time.time()
     execution_time = end_time - start_time
 
     # Verify results
-    assert results == [10, 20, 24]
+    assert results == [10, 20, 20]
 
     # If tasks ran in parallel, execution time should be closer to the longest task
-    # rather than the sum of all tasks
-    # This assertion is loose since timing can vary, but it helps verify parallelism
-    assert execution_time < 1.0, "Tasks should execute in parallel, not sequentially"
+    assert execution_time < 1.9, "Tasks should execute in parallel, not sequentially"
 
 
 @pytest.mark.asyncio

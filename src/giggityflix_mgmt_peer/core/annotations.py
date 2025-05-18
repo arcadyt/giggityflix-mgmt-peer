@@ -182,19 +182,34 @@ async def execute_parallel(*tasks: Task):
     Returns:
         List of results in the same order as the tasks
     """
-    async_tasks = []
+    resource_manager = get_resource_manager()
+    futures = []
 
     for task in tasks:
         if callable(task):
-            # If it's a simple callable
-            async_tasks.append(task())
+            # Handle CPU-bound decorated functions differently
+            if task in cpu_bound_registry:
+                # For CPU-bound tasks, submit directly to resource manager
+                future = resource_manager.submit_cpu_task(task)
+            else:
+                # For regular async functions, just await them
+                future = task()
+            futures.append(future)
         elif isinstance(task, tuple) and len(task) >= 1 and callable(task[0]):
             # If it's a tuple of (func, args, kwargs)
             func = task[0]
             args = task[1] if len(task) > 1 else ()
             kwargs = task[2] if len(task) > 2 else {}
-            async_tasks.append(func(*args, **kwargs))
+
+            # Handle CPU-bound decorated functions differently
+            if func in cpu_bound_registry:
+                # For CPU-bound tasks, submit directly to resource manager
+                future = resource_manager.submit_cpu_task(func, *args, **kwargs)
+            else:
+                # For regular async functions, just await them
+                future = func(*args, **kwargs)
+            futures.append(future)
         else:
             raise TypeError(f"Expected a callable or tuple of (func, args, kwargs), got {type(task)}")
 
-    return await asyncio.gather(*async_tasks)
+    return await asyncio.gather(*futures)
