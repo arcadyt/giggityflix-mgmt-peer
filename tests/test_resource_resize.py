@@ -248,7 +248,7 @@ async def test_drive_semaphore_resize_during_execution(temp_dir):
     drive = resource_manager.get_drive_identifier(resource_ids[0])
 
     # Resize semaphore to allow more concurrent operations
-    await resource_manager.resize_drive_semaphore(drive, 4)
+    resource_manager.resize_drive_semaphore(drive, 4)
 
     # Second batch - now we should have capacity for all remaining tasks
     for i in range(2, 4):
@@ -271,3 +271,47 @@ async def test_drive_semaphore_resize_during_execution(temp_dir):
     # Verify all tasks completed with the expected results
     for i, result in enumerate(results):
         assert result == f"Completed IO on {resource_ids[i]}"
+
+
+@pytest.mark.asyncio
+async def test_io_task_queueing_above_limit(temp_dir, resource_manager, cleanup_container):
+    """Test that IO tasks above the semaphore limit are queued and executed."""
+    # Register the resource manager
+    container.register(ResourcePoolManager, resource_manager)
+
+    # Set a specific drive limit
+    drive = resource_manager.get_drive_identifier(temp_dir)
+    resource_manager.resize_drive_semaphore(drive, 2)  # Limit to 2 concurrent operations
+
+    # Create test resources
+    resource_ids = [f"{temp_dir}/resource_{i}" for i in range(5)]
+
+    # Define a simple IO operation that sleeps
+    async def io_operation(resource_id: str, seconds: float = 0.5):
+        await asyncio.sleep(seconds)
+        return f"Completed {resource_id}"
+
+    # Start time measurement
+    start_time = time.time()
+
+    # Submit 5 tasks (more than our limit of 2)
+    tasks = []
+    for i in range(5):
+        task = asyncio.create_task(resource_manager.submit_io_task(
+            resource_ids[i], io_operation, resource_ids[i], 0.5
+        ))
+        tasks.append(task)
+
+    # Wait for all tasks
+    results = await asyncio.gather(*tasks)
+    end_time = time.time()
+    total_time = end_time - start_time
+
+    # Verify timing - should take at least 1.5 seconds (3 batches × 0.5s)
+    # But less than 2.5s to confirm it's not running all sequentially
+    assert total_time >= 1.3, f"Execution time too short: {total_time}s"
+    assert total_time < 2.5, f"Execution time too long: {total_time}s"
+
+    # Verify all results
+    for i, result in enumerate(results):
+        assert result == f"Completed {resource_ids[i]}"

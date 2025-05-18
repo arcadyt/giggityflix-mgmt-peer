@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Optional, TypeVar, Set
 
 from ..config import AppConfig, DriveConfig
+from ..utils.resizable_semaphore import ResizableSemaphore
 
 T = TypeVar('T')
 R = TypeVar('R')
@@ -104,7 +105,7 @@ class ResourcePoolManager:
         self._resize_pending = False
         self._old_pool = None  # Store old pool for cleanup
 
-    def get_io_semaphore(self, filepath: str) -> threading.Semaphore:
+    def get_io_semaphore(self, filepath: str) -> ResizableSemaphore:
         """Get or create a semaphore for the drive containing the file."""
         drive = self.get_drive_identifier(filepath)
 
@@ -115,7 +116,7 @@ class ResourcePoolManager:
 
                 # Create semaphore with configured limit
                 limit = drive_config.concurrent_io
-                self._io_semaphores[drive] = threading.Semaphore(limit)
+                self._io_semaphores[drive] = ResizableSemaphore(limit)
                 self._semaphore_sizes[drive] = limit
 
             return self._io_semaphores[drive]
@@ -123,6 +124,8 @@ class ResourcePoolManager:
     def resize_drive_semaphore(self, drive: str, new_limit: int) -> bool:
         """
         Resize the semaphore for a specific drive.
+
+        This is NOT an async function and should not be awaited.
 
         Args:
             drive: Drive identifier
@@ -140,11 +143,15 @@ class ResourcePoolManager:
         else:
             self.config.drive_configs[drive] = DriveConfig(concurrent_io=new_limit)
 
-        # Create new semaphore immediately for future tasks
+        # Resize the existing semaphore instead of creating a new one
         with self._io_semaphores_lock:
-            # Always create a new semaphore with the new limit
-            self._io_semaphores[drive] = threading.Semaphore(new_limit)
-            self._semaphore_sizes[drive] = new_limit
+            if drive in self._io_semaphores:
+                self._io_semaphores[drive].resize(new_limit)
+                self._semaphore_sizes[drive] = new_limit
+            else:
+                # Create a new semaphore if it doesn't exist yet
+                self._io_semaphores[drive] = ResizableSemaphore(new_limit)
+                self._semaphore_sizes[drive] = new_limit
 
         return True
 

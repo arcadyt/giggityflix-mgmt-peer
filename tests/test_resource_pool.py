@@ -77,7 +77,7 @@ async def test_drive_specific_semaphores(temp_dir, config_override):
     semaphore = manager.get_io_semaphore(filepath1)
 
     # Verify the semaphore has the correct limit
-    assert semaphore._value == 3
+    assert semaphore.available_permits == 3
 
     # Try acquiring the semaphore multiple times
     assert semaphore.acquire(blocking=False)  # First acquisition
