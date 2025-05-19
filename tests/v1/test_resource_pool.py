@@ -1,11 +1,9 @@
 # tests/test_resource_pool.py
 import os
 import pytest
-import asyncio
-from unittest.mock import patch
 
-from giggityflix_mgmt_peer.config import AppConfig, ProcessPoolConfig, DriveConfig
-from giggityflix_mgmt_peer.core.resource_pool import ResourcePoolManager, MetricsCollector
+from giggityflix_mgmt_peer.v1.config import AppConfig, ProcessPoolConfig, DriveConfig
+from giggityflix_mgmt_peer.v1.core import ResourcePoolManager
 
 
 # Test functions

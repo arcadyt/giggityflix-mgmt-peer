@@ -1,12 +1,12 @@
 # src/peer/app.py
 from typing import Dict, Any
 
-from .api.app import create_fastapi_app
+from giggityflix_mgmt_peer.v1.api.app import create_fastapi_app
 from .config import load_config
-from .core.di import container
-from .core.resource_pool import ResourcePoolManager, MetricsCollector
-from .infrastructure.database import Database
-from .services.image_processor import ImageProcessor
+from giggityflix_mgmt_peer.v1.core.di import container
+from giggityflix_mgmt_peer.v1.core.resource_pool import ResourcePoolManager, MetricsCollector
+from giggityflix_mgmt_peer.v1.infrastructure.database import Database
+from giggityflix_mgmt_peer.v1.services import ImageProcessor
 
 
 class ApplicationFactory:

@@ -2,7 +2,7 @@ import pytest
 import threading
 import time
 
-from giggityflix_mgmt_peer.utils.resizable_semaphore import ResizableSemaphore
+from giggityflix_mgmt_peer.v1.utils.resizable_semaphore import ResizableSemaphore
 
 
 class TestResizableSemaphore:

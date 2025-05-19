@@ -8,7 +8,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional, TypeVar, Set
 
-from ..config import AppConfig, DriveConfig
+from giggityflix_mgmt_peer.v1.config import AppConfig, DriveConfig
 from ..utils.resizable_semaphore import ResizableSemaphore
 
 T = TypeVar('T')

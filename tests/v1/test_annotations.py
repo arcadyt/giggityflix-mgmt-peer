@@ -1,14 +1,12 @@
 # tests/test_annotations.py
 import os
-import json
 import pytest
-import asyncio
 import time
-from unittest.mock import patch, MagicMock, call, ANY
+from unittest.mock import patch, MagicMock, ANY
 
-from giggityflix_mgmt_peer.core.annotations import io_bound, cpu_bound, execute_parallel
-from giggityflix_mgmt_peer.core.di import container
-from giggityflix_mgmt_peer.core.resource_pool import ResourcePoolManager, ExecutionMetrics
+from giggityflix_mgmt_peer.v1.core import io_bound, cpu_bound, execute_parallel
+from giggityflix_mgmt_peer.v1.core import container
+from giggityflix_mgmt_peer.v1.core import ResourcePoolManager
 
 
 # Test functions with decorators

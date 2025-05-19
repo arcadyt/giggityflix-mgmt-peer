@@ -3,11 +3,10 @@ import os
 import time
 import asyncio
 import pytest
-from pathlib import Path
 
-from giggityflix_mgmt_peer.core.di import container
-from giggityflix_mgmt_peer.core.resource_pool import ResourcePoolManager
-from giggityflix_mgmt_peer.app import create_app
+from giggityflix_mgmt_peer.v1.core import container
+from giggityflix_mgmt_peer.v1.core import ResourcePoolManager
+from giggityflix_mgmt_peer.v1.app import create_app
 
 
 # Helper functions for slow operations
@@ -142,7 +141,7 @@ async def test_drive_semaphore_resize_during_execution(temp_dir):
 async def http_client():
     """Create HTTP client for testing the API."""
     from fastapi.testclient import TestClient
-    from giggityflix_mgmt_peer.api.app import create_fastapi_app
+    from giggityflix_mgmt_peer.v1.api import create_fastapi_app
     
     # Create the application and get the FastAPI app
     app_dict = create_app()

@@ -4,12 +4,11 @@ import json
 import tempfile
 import shutil
 import pytest
-from unittest.mock import MagicMock
 
-from giggityflix_mgmt_peer.config import AppConfig, ProcessPoolConfig
-from giggityflix_mgmt_peer.core.resource_pool import ResourcePoolManager, MetricsCollector
-from giggityflix_mgmt_peer.services.image_processor import ImageProcessor
-from giggityflix_mgmt_peer.core.di import container
+from giggityflix_mgmt_peer.v1.config import AppConfig, ProcessPoolConfig
+from giggityflix_mgmt_peer.v1.core import ResourcePoolManager, MetricsCollector
+from giggityflix_mgmt_peer.v1.services.image_processor import ImageProcessor
+from giggityflix_mgmt_peer.v1.core import container
 
 
 # Custom MetricsCollector for testing

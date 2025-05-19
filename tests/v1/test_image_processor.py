@@ -2,11 +2,9 @@
 import os
 import json
 import pytest
-from unittest.mock import patch, MagicMock
 
-from giggityflix_mgmt_peer.services.image_processor import ImageProcessor
-from giggityflix_mgmt_peer.core.di import container
-from giggityflix_mgmt_peer.core.resource_pool import ResourcePoolManager
+from giggityflix_mgmt_peer.v1.core import container
+from giggityflix_mgmt_peer.v1.core import ResourcePoolManager
 
 
 @pytest.mark.asyncio
