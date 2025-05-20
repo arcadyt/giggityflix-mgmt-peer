@@ -10,6 +10,9 @@ python = "^3.11"
 opencv-python = "^4.6.0"
 numpy = "^1.23.0"
 fastapi = "^0.115.12"
+django = "^4.2.21"
+djangorestframework = "^3.16.0"
+wmi = {version = "^1.5.1", platform = "win32", optional = true}
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.5"
@@ -42,3 +45,6 @@ asyncio_mode = "auto"
 markers = [
     "slow: marks tests as slow"
 ]
+
+[virtualenvs]
+in-project = true
