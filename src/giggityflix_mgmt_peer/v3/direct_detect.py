@@ -41,6 +41,47 @@ def _clean_string(value: Optional[str]) -> str:
 
     return cleaned or "Unknown"
 
+def _extract_manufacturer(model: str, raw_manufacturer: str) -> str:
+    """Extract the actual manufacturer from model string if raw_manufacturer is generic."""
+    # If raw manufacturer is not generic, use it
+    if raw_manufacturer and raw_manufacturer.lower() not in ["standard_disk_drives", "unknown", "standard", "generic"]:
+        return raw_manufacturer
+    
+    # Try to extract manufacturer from model string
+    if not model or model.lower() in ["unknown"]:
+        return "Unknown"
+    
+    # Common patterns for extracting manufacturer from model
+    patterns = [
+        # Pattern 1: Manufacturer_Product format (e.g., "SAMSUNG_MZVL2")
+        r'^([A-Za-z0-9]+)_',
+        # Pattern 2: Manufacturer Product format with space (e.g., "SAMSUNG MZVL2")
+        r'^([A-Za-z0-9]+)\s',
+        # Pattern 3: ManufacturerProduct format where manufacturer name is all caps
+        r'^([A-Z]+)(?=[A-Z][a-z]|[0-9])',
+    ]
+    
+    # Try each pattern in order
+    for pattern in patterns:
+        match = re.search(pattern, model)
+        if match:
+            manufacturer = match.group(1)
+            # Properly capitalize (first letter upper, rest lower)
+            manufacturer = manufacturer.strip().lower()
+            manufacturer = manufacturer[0].upper() + manufacturer[1:]
+            return manufacturer
+    
+    # If no pattern matches, return the first segment before any separator
+    parts = re.split(r'[_\s-]+', model.strip(), 1)
+    if len(parts) > 0 and parts[0]:
+        # Clean up the manufacturer name
+        manufacturer = parts[0].strip().lower()
+        manufacturer = manufacturer[0].upper() + manufacturer[1:]
+        return manufacturer
+    
+    # Return raw manufacturer if we couldn't extract anything better
+    return raw_manufacturer or "Unknown"
+
 def _extract_disk_number(partition_id: str) -> Optional[str]:
     """Extract disk number from partition device ID."""
     patterns = [
@@ -86,10 +127,16 @@ def _detect_windows_drives_wmi():
             drive_id = str(physical_disk.Index)
             
             # Collect drive info
+            raw_manufacturer = _clean_string(physical_disk.Manufacturer)
+            model = _clean_string(physical_disk.Model)
+            
+            # Extract actual manufacturer from model if needed
+            manufacturer = _extract_manufacturer(model, raw_manufacturer)
+            
             drive = {
                 "id": drive_id,
-                "manufacturer": _clean_string(physical_disk.Manufacturer),
-                "model": _clean_string(physical_disk.Model),
+                "manufacturer": manufacturer,
+                "model": model,
                 "serial": _clean_string(physical_disk.SerialNumber),
                 "size_bytes": int(physical_disk.Size) if physical_disk.Size else 0,
                 "filesystem_type": "Unknown"  # Will be determined from partitions
@@ -229,9 +276,14 @@ def _detect_windows_drives_fallback():
                 
                 # Create drive entry 
                 drive_id = f"win_{letter.lower()}"
+                model = volume_name_buffer.value or f"Drive_{letter}"
+                
+                # Try to extract manufacturer from model
+                manufacturer = _extract_manufacturer(model, "Unknown")
+                
                 drive = {
                     "id": drive_id,
-                    "manufacturer": "Unknown",  # Can't get from fallback
+                    "manufacturer": manufacturer,
                     "model": model,
                     "serial": str(volume_serial.value) if volume_serial.value else "Unknown",
                     "size_bytes": size,
@@ -239,7 +291,7 @@ def _detect_windows_drives_fallback():
                 }
                 
                 drives.append(drive)
-                logger.info(f"Added drive: {drive['id']} - {drive['model']} ({drive['size_bytes']} bytes)")
+                logger.info(f"Added drive: {drive['id']} - {drive['manufacturer']} {drive['model']} ({drive['size_bytes']} bytes)")
                 
                 # Add partition mapping
                 partition = {
@@ -290,9 +342,14 @@ def detect_linux_drives_direct():
             if device.get("type") == "disk":
                 drive_id = device.get("name", "unknown")
                 
+                # Extract model and manufacturer
+                model = device.get("model", "Unknown").strip()
+                manufacturer = _extract_manufacturer(model, "Unknown")
+                
                 drive = {
                     "id": drive_id,
-                    "model": device.get("model", "Unknown").strip(),
+                    "manufacturer": manufacturer,
+                    "model": model,
                     "serial": device.get("serial", "Unknown").strip(),
                     "size_bytes": int(device.get("size", 0)),
                     "filesystem_type": device.get("fstype", "Unknown").strip()
@@ -324,9 +381,14 @@ def detect_linux_drives_direct():
                     device = parts[0]
                     mount_point = parts[1]
                     
+                    # Extract model and manufacturer
+                    mount_model = f"Mount_{mount_point.replace('/', '_')}"
+                    manufacturer = _extract_manufacturer(mount_model, "Unknown")
+                    
                     drive = {
                         "id": f"linux_{i}",
-                        "model": f"Mount_{mount_point.replace('/', '_')}",
+                        "manufacturer": manufacturer,
+                        "model": mount_model,
                         "size_bytes": 0
                     }
                     
@@ -343,9 +405,12 @@ def detect_linux_drives_direct():
             logger.error(f"Mount detection failed: {e}")
             
             # Last resort - add root
+            root_model = "Root_Volume"
+            manufacturer = _extract_manufacturer(root_model, "Unknown")
             drives.append({
                 "id": "root",
-                "model": "Root_Volume",
+                "manufacturer": manufacturer,
+                "model": root_model,
                 "size_bytes": 0
             })
             
@@ -387,9 +452,14 @@ def detect_macos_drives_direct():
                 
                 info = plistlib.loads(info_process.stdout.encode('utf-8'))
                 
+                # Extract model and manufacturer
+                model = info.get("DeviceModel", "Unknown")
+                manufacturer = _extract_manufacturer(model, "Unknown")
+                
                 drive = {
                     "id": disk_id,
-                    "model": info.get("DeviceModel", "Unknown"),
+                    "manufacturer": manufacturer,
+                    "model": model,
                     "size_bytes": info.get("Size", 0),
                     "filesystem_type": info.get("FilesystemType", "Unknown")
                 }
@@ -425,9 +495,14 @@ def detect_macos_drives_direct():
                     if len(mount_parts) >= 1:
                         mount_point = mount_parts[0]
                         
+                        # Extract model and manufacturer
+                        volume_model = f"Volume_{os.path.basename(mount_point)}"
+                        manufacturer = _extract_manufacturer(volume_model, "Unknown")
+                        
                         drive = {
                             "id": f"macos_{i}",
-                            "model": f"Volume_{os.path.basename(mount_point)}",
+                            "manufacturer": manufacturer,
+                            "model": volume_model,
                             "size_bytes": 0
                         }
                         
@@ -444,9 +519,12 @@ def detect_macos_drives_direct():
             logger.error(f"Mount detection failed: {e}")
             
             # Last resort - add root
+            root_model = "Root_Volume"
+            manufacturer = _extract_manufacturer(root_model, "Unknown")
             drives.append({
                 "id": "root",
-                "model": "Root_Volume",
+                "manufacturer": manufacturer,
+                "model": root_model,
                 "size_bytes": 0
             })
             
