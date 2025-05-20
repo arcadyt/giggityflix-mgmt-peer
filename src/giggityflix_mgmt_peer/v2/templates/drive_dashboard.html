@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Giggityflix Drive Dashboard</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- React -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://unpkg.com/lucide-react@latest"></script>
+</head>
+<body>
+    <div id="react-root"></div>
+
+    <!-- Our React component -->
+    <script src="/drives/dashboard.js"></script>
+    <script>
+        // Mount the React component
+        window.addEventListener('DOMContentLoaded', function() {
+            const rootElement = document.getElementById('react-root');
+            if (rootElement) {
+                const root = ReactDOM.createRoot(rootElement);
+                root.render(React.createElement(DriveDashboard));
+            }
+        });
+    </script>
+</body>
+</html>

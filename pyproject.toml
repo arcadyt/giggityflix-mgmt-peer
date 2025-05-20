@@ -10,6 +10,10 @@ python = "^3.11"
 opencv-python = "^4.6.0"
 numpy = "^1.23.0"
 fastapi = "^0.115.12"
+wmi = {version = "^1.5.1", platform = "win32"}
+pywin32 = {version = "^306", platform = "win32"}
+jinja2 = "^3.1.6"
+uvicorn = "^0.34.2"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.5"
