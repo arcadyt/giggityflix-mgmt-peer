@@ -20,6 +20,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
+    'giggityflix_mgmt_peer.config',  # Add our new config app
     'giggityflix_mgmt_peer.drive_pool',
 ]
 
@@ -107,5 +108,12 @@ LOGGING = {
     'root': {
         'handlers': ['console'],
         'level': 'INFO',
+    },
+    'loggers': {
+        'giggityflix_mgmt_peer': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
     },
 }

@@ -3,9 +3,9 @@ from rest_framework import viewsets, mixins, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from giggityflix_mgmt_peer.drive_pool.drive_service.drive_service import DriveService
-from giggityflix_mgmt_peer.drive_pool.models.drive_models import PhysicalDrive, Partition
-from .serializers import PhysicalDriveSerializer, PartitionSerializer, DriveStatsSerializer
+from giggityflix_mgmt_peer.services.drive_service import DriveService
+from giggityflix_mgmt_peer.models.drive_models import PhysicalDrive, Partition
+from giggityflix_mgmt_peer.api.serializers import PhysicalDriveSerializer, PartitionSerializer, DriveStatsSerializer
 
 
 class PhysicalDriveViewSet(mixins.ListModelMixin,

@@ -4,7 +4,7 @@ import os
 import subprocess
 from typing import Dict, List
 
-from giggityflix_mgmt_peer.drive_pool.drive_detection.detector import DriveDetector
+from giggityflix_mgmt_peer.drive_detection import DriveDetector
 from .utils import extract_manufacturer, format_drive_data, format_partition_data
 
 logger = logging.getLogger(__name__)

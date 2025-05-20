@@ -16,7 +16,7 @@ class DrivePoolConfig(AppConfig):
 
         # Import here to avoid app registry not ready error
         try:
-            from giggityflix_mgmt_peer.drive_pool.drive_service.drive_service import DriveService
+            from giggityflix_mgmt_peer.services.drive_service import DriveService
 
             # Detect drives in a background thread to avoid blocking startup
             import threading
