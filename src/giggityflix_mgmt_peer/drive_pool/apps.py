@@ -1,5 +1,6 @@
-from django.apps import AppConfig
 import sys
+
+from django.apps import AppConfig
 
 
 class DrivePoolConfig(AppConfig):
@@ -12,11 +13,11 @@ class DrivePoolConfig(AppConfig):
         # Skip initialization during migrations or when collecting static files
         if any(cmd in sys.argv for cmd in ['makemigrations', 'migrate', 'collectstatic']):
             return
-            
+
         # Import here to avoid app registry not ready error
         try:
-            from ..drive_service.drive_service import DriveService
-            
+            from giggityflix_mgmt_peer.drive_pool.drive_service.drive_service import DriveService
+
             # Detect drives in a background thread to avoid blocking startup
             import threading
             thread = threading.Thread(target=DriveService.detect_and_persist_drives)

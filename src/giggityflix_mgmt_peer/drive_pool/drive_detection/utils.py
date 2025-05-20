@@ -1,7 +1,7 @@
 """Utility functions for drive detection."""
 import logging
 import re
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
 logger = logging.getLogger(__name__)
 

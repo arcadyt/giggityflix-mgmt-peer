@@ -1,17 +1,17 @@
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Optional
 
 
 class PhysicalDrive:
     """Model for detection representing a physical drive."""
-    
+
     def __init__(
-        self,
-        id: str,
-        manufacturer: str = "Unknown",
-        model: str = "Unknown",
-        serial: str = "Unknown",
-        size_bytes: int = 0,
-        filesystem_type: str = "Unknown"
+            self,
+            id: str,
+            manufacturer: str = "Unknown",
+            model: str = "Unknown",
+            serial: str = "Unknown",
+            size_bytes: int = 0,
+            filesystem_type: str = "Unknown"
     ):
         self.id = id
         self.manufacturer = manufacturer
@@ -41,7 +41,7 @@ class PhysicalDrive:
 
 class DriveMapping:
     """Maps partitions to physical drives."""
-    
+
     def __init__(self):
         self._drives: Dict[str, PhysicalDrive] = {}
         self._partitions: Dict[str, str] = {}  # partition -> drive_id
@@ -68,7 +68,7 @@ class DriveMapping:
     def get_partitions_for_drive(self, drive_id: str) -> List[str]:
         """Get all partitions for a drive."""
         return [p for p, d in self._partitions.items() if d == drive_id]
-        
+
     def to_dict(self) -> Dict:
         """Convert to dictionary for debugging."""
         return {

@@ -1,5 +1,6 @@
 from rest_framework import serializers
-from .models import PhysicalDrive, Partition
+
+from giggityflix_mgmt_peer.drive_pool.models.drive_models import PhysicalDrive, Partition
 
 
 class PartitionSerializer(serializers.ModelSerializer):

@@ -1,11 +1,11 @@
 """Windows-specific drive detection implementation."""
+import ctypes
 import logging
 import os
 import string
-import ctypes
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List
 
-from .detector import DriveDetector
+from giggityflix_mgmt_peer.drive_pool.drive_detection.detector import DriveDetector
 from .utils import clean_string, extract_manufacturer, extract_disk_number
 from .utils import format_drive_data, format_partition_data
 
