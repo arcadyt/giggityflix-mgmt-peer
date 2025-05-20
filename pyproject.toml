@@ -12,7 +12,7 @@ numpy = "^1.23.0"
 fastapi = "^0.115.12"
 django = "^4.2.21"
 djangorestframework = "^3.16.0"
-wmi = {version = "^1.5.1", platform = "win32", optional = true}
+wmi = { version = "^1.5.1", platform = "win32", optional = true }
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.5"
