@@ -1,15 +1,9 @@
-# giggityflix_mgmt_peer/apps/configuration/serializers.py
-# Full, self-contained DTO layer – drop in as-is.
 from rest_framework import serializers
-
-# If you kept the simplified layout:
-from giggityflix_mgmt_peer.apps.configuration.models import Configuration
-# If you kept the old DDD layout, switch the import to:
-# from giggityflix_mgmt_peer.apps.configuration.infrastructure.orm import Configuration
+from .models import Configuration
 
 
 class ConfigurationSerializer(serializers.ModelSerializer):
-    """Expose the full configuration record, plus typed helpers."""
+    """Serializer for the Configuration model."""
 
     typed_value = serializers.SerializerMethodField()
     typed_default_value = serializers.SerializerMethodField()
@@ -17,63 +11,62 @@ class ConfigurationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Configuration
         fields = (
-            "key",
-            "value",
-            "default",             # rename to default_value if you kept that field
-            "value_type",
-            "description",
-            "is_env_overridable",
-            "env_variable",
-            "created_at",
-            "updated_at",
-            "typed_value",
-            "typed_default_value",
+            'key',
+            'value',
+            'default_value',
+            'value_type',
+            'description',
+            'is_env_overridable',
+            'env_variable',
+            'created_at',
+            'updated_at',
+            'typed_value',
+            'typed_default_value',
         )
-        read_only_fields = ("created_at", "updated_at", "typed_value", "typed_default_value")
+        read_only_fields = ('created_at', 'updated_at', 'typed_value', 'typed_default_value')
 
-    # ---- helper getters --------------------------------------------------
     def get_typed_value(self, obj):
-        return obj.cast()                       # one-liner: model handles casting
+        """Get the typed value of the configuration."""
+        return obj.get_typed_value()
 
     def get_typed_default_value(self, obj):
-        return obj.cast(obj.default)
+        """Get the typed default value of the configuration."""
+        return obj.get_typed_default_value()
 
-    # ---- validation: ensure value ↔ type match ---------------------------
     def validate(self, data):
-        """Fail fast if value cannot be cast to value_type."""
-        value      = data.get("value",      getattr(self.instance, "value", None))
-        value_type = data.get("value_type", getattr(self.instance, "value_type", None))
+        """Validate that the value can be converted to the specified type."""
+        value = data.get('value')
+        value_type = data.get('value_type')
 
-        if value_type is not None and value is not None:
+        if value is not None and value_type is not None:
             try:
-                Configuration(value=value, value_type=value_type).cast()
-            except Exception as exc:
-                raise serializers.ValidationError(
-                    {"value": f"Cannot convert to {value_type}: {exc}"}
-                )
+                # Create a temporary instance to test conversion
+                temp = Configuration(value=value, value_type=value_type)
+                temp.get_typed_value()
+            except Exception as e:
+                raise serializers.ValidationError(f"Cannot convert value to {value_type}: {str(e)}")
+
         return data
 
 
 class ConfigurationValueSerializer(serializers.Serializer):
-    """Patch-only DTO – update `value` while keeping original type."""
+    """Serializer for updating only the value of a configuration."""
 
     value = serializers.CharField(allow_null=True, required=False)
 
     def validate(self, data):
-        key   = self.context.get("key")
-        value = data.get("value")
+        key = self.context.get('key')
+        value = data.get('value')
 
-        if key is None:                       # should not happen – view sets it
-            return data
-
-        try:
-            cfg = Configuration.objects.get(pk=key)
-            Configuration(value=value, value_type=cfg.value_type).cast()
-        except Configuration.DoesNotExist:
-            raise serializers.ValidationError({"key": "Configuration key not found"})
-        except Exception as exc:
-            raise serializers.ValidationError(
-                {"value": f"Cannot convert to {cfg.value_type}: {exc}"}
-            )
+        if key:
+            try:
+                config = Configuration.objects.get(key=key)
+                # Test that value can be converted to the right type
+                temp = Configuration(value=value, value_type=config.value_type)
+                temp.get_typed_value()
+            except Configuration.DoesNotExist:
+                raise serializers.ValidationError("Configuration key not found")
+            except Exception as e:
+                raise serializers.ValidationError(f"Cannot convert to {config.value_type}: {str(e)}")
 
         return data

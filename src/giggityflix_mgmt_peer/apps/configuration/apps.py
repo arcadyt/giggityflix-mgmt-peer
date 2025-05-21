@@ -1,20 +1,23 @@
 from django.apps import AppConfig
-from django.db.models.signals import post_delete
-from django.dispatch import receiver
-from .signals import configuration_changed
+from django.db.models.signals import post_migrate
+
 
 class ConfigurationConfig(AppConfig):
     name = 'giggityflix_mgmt_peer.apps.configuration'
+    label = 'configuration'
 
     def ready(self):
-        # import receivers so they are registered          # one-liner
-        from . import receivers  # noqa
+        """Initialize configuration service when app is ready."""
+        # Import services module
+        from . import services
 
+        # Avoid circular imports
+        from . import receivers
 
-# receivers.py (optional separate file) -------------------------
-from .signals import configuration_changed
+        # Initialize after migrations
+        post_migrate.connect(self._post_migrate_handler, sender=self)
 
-@receiver(configuration_changed)
-def invalidate_local_cache(sender, key, value, **kwargs):
-    from . import services
-    services._CACHE.pop(key, None)          # one-liner
+    def _post_migrate_handler(self, sender, **kwargs):
+        """Initialize configuration after migrations."""
+        from . import services
+        services.initialize()

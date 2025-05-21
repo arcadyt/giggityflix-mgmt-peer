@@ -1,59 +1,120 @@
-"""DRF ViewSet – lean version, all heavy lifting stays in ConfigurationService."""
 from django.shortcuts import get_object_or_404
-from rest_framework import status, viewsets
+from rest_framework import status, viewsets, mixins
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from .models import Configuration                          # ORM: read-only use
+from .models import Configuration
 from .serializers import ConfigurationSerializer, ConfigurationValueSerializer
-from .services import get_configuration_service            # cache + events
+from . import services
 
-svc = get_configuration_service()                          # singleton
-
-class ConfigurationViewSet(viewsets.ReadOnlyModelViewSet):
+class ConfigurationViewSet(viewsets.ModelViewSet):
     """
-    CRUD endpoints:
-      • GET    /configurations/              (list)
-      • GET    /configurations/<key>/        (retrieve)
-      • POST   /configurations/              (create)
-      • PUT    /configurations/<key>/        (full update)
-      • DELETE /configurations/<key>/        (delete)
-      • PATCH  /configurations/<key>/value/  (update only 'value')
-      • GET    /configurations/dict/         (all configs as {key: value})
+    API endpoints for configuration management.
+    
+    list:        GET /configurations/
+    retrieve:    GET /configurations/{key}/
+    create:      POST /configurations/
+    update:      PUT /configurations/{key}/
+    partial:     PATCH /configurations/{key}/
+    delete:      DELETE /configurations/{key}/
+    value:       PATCH /configurations/{key}/value/
+    dict:        GET /configurations/dict/
     """
-    queryset = Configuration.objects.all()   # safe – service keeps cache fresh
+    queryset = Configuration.objects.all()
     serializer_class = ConfigurationSerializer
-    lookup_field = "key"
-
-    # ---------- write operations delegated to the service ----------
+    lookup_field = 'key'
+    
+    def get_queryset(self):
+        # Allow filtering by value_type
+        queryset = super().get_queryset()
+        value_type = self.request.query_params.get('value_type')
+        if value_type:
+            queryset = queryset.filter(value_type=value_type)
+        return queryset
+    
+    # Override create to use service
     def create(self, request, *args, **kwargs):
-        ser = self.get_serializer(data=request.data)
-        ser.is_valid(raise_exception=True)
-        svc.set(**ser.validated_data)        # fires events, updates cache
-        return Response(ser.data, status=status.HTTP_201_CREATED)
-
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        # Extract validated data
+        data = serializer.validated_data
+        key = data.get('key')
+        
+        # Use service to create
+        success = services.set(
+            key=key,
+            value=data.get('value'),
+            value_type=data.get('value_type'),
+            description=data.get('description'),
+            is_env_overridable=data.get('is_env_overridable'),
+            env_variable=data.get('env_variable'),
+            default_value=data.get('default_value')
+        )
+        
+        if success:
+            # Get the created object
+            instance = get_object_or_404(Configuration, key=key)
+            serializer = self.get_serializer(instance)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        
+        return Response({'error': 'Failed to create configuration'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    # Override update to use service
     def update(self, request, *args, **kwargs):
-        key = kwargs[self.lookup_field]
-        ser = self.get_serializer(data=request.data)
-        ser.is_valid(raise_exception=True)
-        svc.set(key=key, **ser.validated_data)
-        return Response(ser.data)
-
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        
+        # Extract validated data
+        data = serializer.validated_data
+        
+        # Use service to update
+        success = services.set(
+            key=instance.key,
+            value=data.get('value', instance.value),
+            value_type=data.get('value_type', instance.value_type),
+            description=data.get('description', instance.description),
+            is_env_overridable=data.get('is_env_overridable', instance.is_env_overridable),
+            env_variable=data.get('env_variable', instance.env_variable),
+            default_value=data.get('default_value', instance.default_value)
+        )
+        
+        if success:
+            # Get the updated object
+            instance = get_object_or_404(Configuration, key=instance.key)
+            serializer = self.get_serializer(instance)
+            return Response(serializer.data)
+        
+        return Response({'error': 'Failed to update configuration'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    # Override destroy to use service
     def destroy(self, request, *args, **kwargs):
-        key = kwargs[self.lookup_field]
-        svc.delete(key)
-        return Response(status=status.HTTP_204_NO_CONTENT)
-
-    # ---------- extras ---------------------------------------------
-    @action(detail=True, methods=["patch"])
+        instance = self.get_object()
+        success = services.delete(instance.key)
+        
+        if success:
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        
+        return Response({'error': 'Failed to delete configuration'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    @action(detail=True, methods=['patch'])
     def value(self, request, key=None):
-        """PATCH only the 'value' field – cheaper for UI inline-edit."""
-        ser = ConfigurationValueSerializer(data=request.data, context={"key": key})
-        ser.is_valid(raise_exception=True)
-        svc.set(key, ser.validated_data["value"])
-        return Response(status=status.HTTP_200_OK)
-
-    @action(detail=False, methods=["get"])
+        """Update only the value field."""
+        instance = self.get_object()
+        serializer = ConfigurationValueSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        # Use service to update value only
+        success = services.set(key, serializer.validated_data.get('value'))
+        
+        if success:
+            return Response(status=status.HTTP_200_OK)
+        
+        return Response({'error': 'Failed to update value'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    @action(detail=False, methods=['get'])
     def dict(self, request):
         """Return all configs as plain dict {key: typed_value}."""
-        return Response(svc.get_all())
+        return Response(services.get_all())

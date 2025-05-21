@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.utils.html import format_html
 
-from giggityflix_mgmt_peer.apps.configuration.infrastructure.orm import Configuration
+from giggityflix_mgmt_peer.apps.configuration import Configuration
 
 
 @admin.register(Configuration)
