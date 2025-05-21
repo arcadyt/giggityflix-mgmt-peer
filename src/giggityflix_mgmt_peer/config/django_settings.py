@@ -20,7 +20,8 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
-    'giggityflix_mgmt_peer.drive_pool',
+    'giggityflix_mgmt_peer.apps.configuration.apps.ConfigurationConfig',
+    'giggityflix_mgmt_peer.apps.drive_detection.apps.DriveDetectionConfig',
 ]
 
 MIDDLEWARE = [
@@ -107,5 +108,12 @@ LOGGING = {
     'root': {
         'handlers': ['console'],
         'level': 'INFO',
+    },
+    'loggers': {
+        'giggityflix_mgmt_peer': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
     },
 }
