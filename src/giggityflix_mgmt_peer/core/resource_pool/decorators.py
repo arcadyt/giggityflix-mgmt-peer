@@ -1,129 +1,172 @@
-"""Decorators for resource management."""
+"""
+Unified decorators for resource management (Python 3.11+).
+
+Features
+--------
+* @io_bound   – limits concurrent IO to the same physical drive.
+* @cpu_bound  – runs CPU-heavy work in a process pool.
+
+Both decorators
+* support sync *and* async functions,
+* auto-detect whether an event-loop is already running,
+* are re-entrant (recursive calls run directly, avoiding executor loops).
+"""
+
+from __future__ import annotations
+
 import asyncio
+import contextvars
 import functools
 import inspect
-import os
-import threading
-from typing import Callable, TypeVar, cast
+from pathlib import Path
+from typing import Any, Awaitable, Callable, ParamSpec, TypeVar, Union
 
 from giggityflix_mgmt_peer.core.resource_pool.manager import get_resource_pool_manager
 
-# Thread local storage for tracking recursion
-_local = threading.local()
-T = TypeVar('T')
+P = ParamSpec("P")
+R = TypeVar("R")
+
+# --------------------------------------------------------------------------- #
+# Internal helpers
+# --------------------------------------------------------------------------- #
+
+_in_io_pool:  contextvars.ContextVar[set[str]] = contextvars.ContextVar("_in_io_pool",  default=set())
+_in_cpu_pool: contextvars.ContextVar[set[str]] = contextvars.ContextVar("_in_cpu_pool", default=set())
 
 
-def io_bound(param_name: str = 'filepath'):
-    """
-    Decorator for IO-bound operations.
-    
-    Limits concurrent IO operations to a specific drive using semaphores.
-    
-    Args:
-        param_name: Name of the parameter containing the file path
-    """
-
-    def decorator(func: Callable[..., T]) -> Callable[..., T]:
-        # Get function signature
-        sig = inspect.signature(func)
-
-        @functools.wraps(func)
-        async def async_wrapper(*args, **kwargs):
-            # Get path from arguments
-            path = None
-            bound_args = sig.bind(*args, **kwargs)
-
-            if param_name in bound_args.arguments:
-                path = bound_args.arguments[param_name]
-
-            if not path:
-                # No path parameter, execute normally
-                if asyncio.iscoroutinefunction(func):
-                    return await func(*args, **kwargs)
-                return func(*args, **kwargs)
-
-            # Get semaphore for the drive
-            semaphore = get_resource_pool_manager().get_drive_semaphore(path)
-
-            # Execute with semaphore
-            async with semaphore:
-                if asyncio.iscoroutinefunction(func):
-                    return await func(*args, **kwargs)
-                return func(*args, **kwargs)
-
-        @functools.wraps(func)
-        def sync_wrapper(*args, **kwargs):
-            # Get path from arguments
-            path = None
-            bound_args = sig.bind(*args, **kwargs)
-
-            if param_name in bound_args.arguments:
-                path = bound_args.arguments[param_name]
-
-            if not path:
-                # No path parameter, execute normally
-                return func(*args, **kwargs)
-
-            # For synchronous functions, we need to get a different kind of semaphore
-            # since asyncio semaphores won't work
-            # This is a simplified approach that throttles at process level
-
-            # Use sleep as a crude rate limiter based on drive ID
-            drive_id = get_resource_pool_manager()._get_drive_id_for_path(path)
-            limit = int(os.environ.get(f'PEER_DRIVE_{drive_id}_IO', get_resource_pool_manager().default_io_limit))
-
-            # Use thread pool to limit concurrent operations
-            thread_pool = get_resource_pool_manager().get_thread_pool()
-            return thread_pool.submit(func, *args, **kwargs).result()
-
-        # Return appropriate wrapper based on function type
-        if asyncio.iscoroutinefunction(func):
-            return cast(Callable[..., T], async_wrapper)
-        return cast(Callable[..., T], sync_wrapper)
-
-    return decorator
+def _extract_arg(
+    sig: inspect.Signature,
+    param_name: str,
+    args: tuple[Any, ...],
+    kwargs: dict[str, Any],
+) -> Any | None:
+    """Return the value bound to *param_name*, regardless of positional/kw-style."""
+    bound = sig.bind_partial(*args, **kwargs)
+    return bound.arguments.get(param_name)
 
 
-def cpu_bound():
-    """
-    Decorator for CPU-bound operations.
-    
-    Executes operations in a process pool to prevent CPU saturation.
-    """
+def _run_sync(coro: Awaitable[R]) -> R:
+    """Execute *coro* from sync code, re-using an existing loop if possible."""
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:             # no loop → easiest path
+        return asyncio.run(coro)
 
-    def decorator(func: Callable[..., T]) -> Callable[..., T]:
-        # Setup thread-local state
-        if not hasattr(_local, 'in_cpu_bound'):
-            _local.in_cpu_bound = {}
+    if loop.is_running():            # inside an event-loop (sync caller in async ctx)
+        return asyncio.ensure_future(coro)          # type: ignore[return-value]
+    return loop.run_until_complete(coro)            # type: ignore[return-value]
+
+# --------------------------------------------------------------------------- #
+# Decorators
+# --------------------------------------------------------------------------- #
+
+def io_bound(param_name: str = "filepath") -> Callable[[Callable[P, R]], Callable[P, R]]:
+    """Throttle IO to the drive of *param_name* (defaults to «filepath»)."""
+
+    def decorator(func: Callable[P, R]) -> Callable[P, R]:
+        sig      = inspect.signature(func)
+        is_async = asyncio.iscoroutinefunction(func)
 
         @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            # Get the function's qualified name to use as key
-            func_key = f"{func.__module__}.{func.__qualname__}"
+        async def _inner_async(*args: P.args, **kwargs: P.kwargs) -> R:  # type: ignore[name-defined]
+            key          = func.__qualname__
+            active_calls = _in_io_pool.get()
 
-            # Check if we're already running in the process pool
-            if _local.in_cpu_bound.get(func_key, False):
-                # Already in process pool, execute directly to avoid deadlocks
-                return func(*args, **kwargs)
+            # Inside IO-pool already → run directly.
+            if key in active_calls:
+                return await func(*args, **kwargs) if is_async else func(*args, **kwargs)  # type: ignore[return-value]
 
-            # Get process pool
-            process_pool = get_resource_pool_manager().get_process_pool()
+            path = _extract_arg(sig, param_name, args, kwargs)
+            if path is None:                            # no path → nothing to throttle
+                return await func(*args, **kwargs) if is_async else func(*args, **kwargs)  # type: ignore[return-value]
 
-            # Mark function as running in process pool
-            _local.in_cpu_bound[func_key] = True
+            mgr   = get_resource_pool_manager()
+            sem   = mgr.get_drive_semaphore(Path(path))
+            token = _in_io_pool.set(active_calls | {key})
 
             try:
-                # Execute in process pool
-                return process_pool.submit(_cpu_bound_helper, func, args, kwargs).result()
+                async with sem:
+                    if is_async:
+                        return await func(*args, **kwargs)          # type: ignore[return-value]
+                    thread_pool = mgr.get_thread_pool()
+                    loop        = asyncio.get_running_loop()
+                    return await loop.run_in_executor(thread_pool, functools.partial(func, *args, **kwargs))
             finally:
-                # Reset state
-                _local.in_cpu_bound[func_key] = False
+                _in_io_pool.reset(token)
 
-        return cast(Callable[..., T], wrapper)
+        @functools.wraps(func)
+        def _inner_sync(*args: P.args, **kwargs: P.kwargs) -> R:      # type: ignore[name-defined]
+            return _run_sync(_inner_async(*args, **kwargs))          # type: ignore[arg-type]
+
+        return _inner_async if is_async else _inner_sync             # type: ignore[return-value]
 
     return decorator
 
 
-def _cpu_bound_helper(func, args, kwargs):
-    """Helper function to execute CPU-bound operations in a process pool."""
-    return func(*args, **kwargs)
+def cpu_bound() -> Callable[[Callable[P, R]], Callable[P, R]]:
+    """Off-load CPU-intensive work to the process pool, with recursion guard."""
+
+    def decorator(func: Callable[P, R]) -> Callable[P, R]:
+        is_async = asyncio.iscoroutinefunction(func)
+
+        @functools.wraps(func)
+        async def _inner_async(*args: P.args, **kwargs: P.kwargs) -> R:  # type: ignore[name-defined]
+            key          = func.__qualname__
+            active_calls = _in_cpu_pool.get()
+
+            if key in active_calls:                            # already inside pool
+                return await func(*args, **kwargs) if is_async else func(*args, **kwargs)  # type: ignore[return-value]
+
+            mgr        = get_resource_pool_manager()
+            proc_pool  = mgr.get_process_pool()
+            token      = _in_cpu_pool.set(active_calls | {key})
+
+            try:
+                loop = asyncio.get_running_loop()
+                return await loop.run_in_executor(proc_pool, functools.partial(func, *args, **kwargs))
+            finally:
+                _in_cpu_pool.reset(token)
+
+        @functools.wraps(func)
+        def _inner_sync(*args: P.args, **kwargs: P.kwargs) -> R:      # type: ignore[name-defined]
+            return _run_sync(_inner_async(*args, **kwargs))          # type: ignore[arg-type]
+
+        return _inner_async if is_async else _inner_sync             # type: ignore[return-value]
+
+    return decorator
+
+# --------------------------------------------------------------------------- #
+# Parallel helper
+# --------------------------------------------------------------------------- #
+
+Task = Union[
+    Callable[[], Awaitable[Any]],                         # naked coroutine function (lambda / partial / whatever)
+    tuple[Callable[..., Any], tuple[Any, ...], dict[str, Any]],  # (func, args, kwargs)
+]
+
+
+async def execute_parallel(*tasks: Task) -> list[Any]:
+    """
+    Run *tasks* concurrently and return the ordered list of results.
+
+    Each *task* may be:
+    ───────────────────────────────────────────────────────────────────────────
+    • an *awaitable* (callable coroutine) – awaited directly;
+    • a triple ``(func, args, kwargs)``   – executed with its own decorators.
+    """
+    async def _run(callable_: Callable[..., Any], *a: Any, **kw: Any) -> Any:
+        if asyncio.iscoroutinefunction(callable_):
+            return await callable_(*a, **kw)
+        return callable_(*a, **kw)
+
+    coros: list[Awaitable[Any]] = []
+    for t in tasks:
+        if callable(t):
+            coros.append(_run(t))
+        elif isinstance(t, tuple) and len(t) >= 1:
+            fn, a, kw = (t + ({},))[:3]  # pad kwargs default
+            coros.append(_run(fn, *a, **kw))
+        else:
+            raise TypeError(f"Unsupported task spec: {t!r}")
+
+    return await asyncio.gather(*coros)

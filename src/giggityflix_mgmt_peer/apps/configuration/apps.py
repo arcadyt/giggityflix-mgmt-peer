@@ -15,8 +15,9 @@ class ConfigurationConfig(AppConfig):
 
         try:
             # Avoid circular imports by importing here
-            from giggityflix_mgmt_peer.apps.configuration.service import config_service
+            from application.services import get_configuration_service
             # Initialize configuration service
+            config_service = get_configuration_service()
             config_service.initialize()
         except ImportError:
             # Silently fail during testing or when models aren't ready
