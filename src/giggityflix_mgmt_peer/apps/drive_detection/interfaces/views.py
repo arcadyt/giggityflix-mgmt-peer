@@ -1,16 +1,20 @@
+"""Views for drive detection."""
 from django.db.models import Sum
 from rest_framework import viewsets, mixins, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from ..drive_detection.application.drive_service import get_drive_service
-from ..drive_detection.infrastructure.orm import PhysicalDrive, Partition
-from ..drive_detection.interfaces.serializers import PhysicalDriveSerializer, PartitionSerializer, DriveStatsSerializer
+from giggityflix_mgmt_peer.apps.drive_detection.application.drive_service import get_drive_service
+from giggityflix_mgmt_peer.apps.drive_detection.infrastructure.orm import PhysicalDrive, Partition
+from giggityflix_mgmt_peer.apps.drive_detection.interfaces.serializers import (
+    PhysicalDriveSerializer, PartitionSerializer, DriveStatsSerializer
+)
 
 
 class PhysicalDriveViewSet(mixins.ListModelMixin,
                            mixins.RetrieveModelMixin,
                            viewsets.GenericViewSet):
+    """ViewSet for PhysicalDrive model."""
     queryset = PhysicalDrive.objects.all()
     serializer_class = PhysicalDriveSerializer
 
@@ -37,5 +41,6 @@ class PhysicalDriveViewSet(mixins.ListModelMixin,
 class PartitionViewSet(mixins.ListModelMixin,
                        mixins.RetrieveModelMixin,
                        viewsets.GenericViewSet):
+    """ViewSet for Partition model."""
     queryset = Partition.objects.all()
     serializer_class = PartitionSerializer

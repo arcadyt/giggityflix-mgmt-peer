@@ -1,8 +1,7 @@
-# src/giggityflix_mgmt_peer/admin/configuration_admin.py
 from django.contrib import admin
 from django.utils.html import format_html
 
-from giggityflix_mgmt_peer.apps.configuration.configuration_model import Configuration
+from giggityflix_mgmt_peer.apps.configuration.models import Configuration
 
 
 @admin.register(Configuration)
@@ -32,7 +31,9 @@ class ConfigurationAdmin(admin.ModelAdmin):
         value = obj.get_typed_value()
 
         # Format the value nicely based on type
-        if obj.value_type == Configuration.TYPE_BOOLEAN:
+        if obj.value_type == Configuration.TYPE_STRING:
+            return str(value)
+        elif obj.value_type == Configuration.TYPE_BOOLEAN:
             return format_html(
                 '<span style="color: {};">⚫</span> {}',
                 'green' if value else 'red',

@@ -1,11 +1,10 @@
-from typing import List, Dict, Tuple, Optional
+from typing import List, Dict, Tuple
 
 from giggityflix_mgmt_peer.apps.drive_detection.domain.models import DriveMapping
 # Import domain models
 from giggityflix_mgmt_peer.apps.drive_detection.domain.models import PhysicalDrive as DomainDrive
-from giggityflix_mgmt_peer.apps.drive_detection.models import Partition as OrmPartition
 # Import ORM models
-from giggityflix_mgmt_peer.apps.drive_detection.models import PhysicalDrive as OrmDrive
+from giggityflix_mgmt_peer.apps.drive_detection.infrastructure.orm import PhysicalDrive as OrmDrive
 
 
 def domain_to_orm_drive(domain_drive: DomainDrive) -> OrmDrive:
@@ -98,59 +97,3 @@ def orm_to_drive_mapping(orm_drives: List[OrmDrive], with_partitions: bool = Tru
                 drive_mapping.add_partition_mapping(partition.mount_point, orm_drive.id)
 
     return drive_mapping
-
-
-def persist_drive_mapping(drive_mapping: DriveMapping) -> None:
-    """
-    Persist a DriveMapping instance to the database.
-
-    Args:
-        drive_mapping: DriveMapping containing drives and partitions to save
-    """
-    # Transform and save all drives
-    for domain_drive in drive_mapping.get_all_physical_drives():
-        # Update or create the drive
-        orm_drive, created = OrmDrive.objects.update_or_create(
-            id=domain_drive.id,
-            defaults={
-                'manufacturer': domain_drive.manufacturer,
-                'model': domain_drive.model,
-                'serial': domain_drive.serial,
-                'size_bytes': domain_drive.size_bytes,
-                'filesystem_type': domain_drive.filesystem_type
-            }
-        )
-
-        # Get all partitions for this drive and create/update them
-        partition_paths = drive_mapping.get_partitions_for_drive(domain_drive.id)
-        for mount_point in partition_paths:
-            OrmPartition.objects.update_or_create(
-                mount_point=mount_point,
-                defaults={'physical_drive': orm_drive}
-            )
-
-        # Optional: Remove partitions that no longer exist
-        existing_partitions = orm_drive.partitions.values_list('mount_point', flat=True)
-        deleted_partitions = set(existing_partitions) - set(partition_paths)
-        if deleted_partitions:
-            OrmPartition.objects.filter(
-                mount_point__in=deleted_partitions,
-                physical_drive=orm_drive
-            ).delete()
-
-
-def get_domain_drive_by_id(drive_id: str) -> Optional[DomainDrive]:
-    """
-    Get a domain drive by ID from the database.
-
-    Args:
-        drive_id: The ID of the drive to fetch
-
-    Returns:
-        Domain drive model or None if not found
-    """
-    try:
-        orm_drive = OrmDrive.objects.get(id=drive_id)
-        return orm_to_domain_drive(orm_drive)
-    except OrmDrive.DoesNotExist:
-        return None

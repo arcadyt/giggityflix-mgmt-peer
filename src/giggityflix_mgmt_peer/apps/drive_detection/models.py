@@ -1,31 +1,10 @@
-from django.db import models
+"""
+Drive detection models for backwards compatibility.
 
+This file re-exports the ORM models from the infrastructure layer
+to maintain backwards compatibility.
+"""
 
-class PhysicalDrive(models.Model):
-    """Django model representing a physical drive."""
-    id = models.CharField(max_length=255, primary_key=True)
-    manufacturer = models.CharField(max_length=255, blank=True, default="Unknown")
-    model = models.CharField(max_length=255, blank=True, default="Unknown")
-    serial = models.CharField(max_length=255, blank=True, default="Unknown")
-    size_bytes = models.BigIntegerField(default=0)
-    filesystem_type = models.CharField(max_length=50, blank=True, default="Unknown")
-    detected_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+from giggityflix_mgmt_peer.apps.drive_detection.infrastructure.orm import PhysicalDrive, Partition
 
-    def __str__(self):
-        return f"{self.id} - {self.model} ({self.size_bytes} bytes)"
-
-
-class Partition(models.Model):
-    """Django model representing a partition or mount point."""
-    mount_point = models.CharField(max_length=255, primary_key=True)
-    physical_drive = models.ForeignKey(
-        PhysicalDrive,
-        related_name="partitions",
-        on_delete=models.CASCADE
-    )
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    def __str__(self):
-        return f"{self.mount_point} -> {self.physical_drive.id}"
+__all__ = ['PhysicalDrive', 'Partition']
