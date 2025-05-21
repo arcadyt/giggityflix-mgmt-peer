@@ -3,9 +3,9 @@ from typing import Dict
 
 from django.utils import timezone
 
-from giggityflix_mgmt_peer.drive_detection.detection import DriveDetectorFactory
-from giggityflix_mgmt_peer.models.drive_models import Partition as DbPartition
-from giggityflix_mgmt_peer.models.drive_models import PhysicalDrive as DbPhysicalDrive
+from detection import DriveDetectorFactory
+from models import Partition as DbPartition
+from models import PhysicalDrive as DbPhysicalDrive
 
 # Set up logging
 logger = logging.getLogger(__name__)

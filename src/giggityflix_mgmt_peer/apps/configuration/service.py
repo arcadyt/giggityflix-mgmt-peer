@@ -1,13 +1,13 @@
+# src/giggityflix_mgmt_peer/services/configuration_service.py
 import os
 import logging
 import threading
-from typing import Any, Callable, Dict, List, Optional, Set, Union
+from typing import Any, Callable, Dict, List, Optional
 
 from django.utils import timezone
 from django.db.models.signals import post_save
-from django.dispatch import receiver
 
-from giggityflix_mgmt_peer.config.models import Configuration
+from giggityflix_mgmt_peer.apps.configuration.configuration_model import Configuration
 
 logger = logging.getLogger(__name__)
 

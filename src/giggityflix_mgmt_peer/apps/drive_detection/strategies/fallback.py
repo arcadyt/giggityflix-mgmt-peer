@@ -3,8 +3,8 @@ import logging
 import os
 from typing import Dict, List
 
-from giggityflix_mgmt_peer.drive_detection import DriveDetector
-from .utils import extract_manufacturer, format_drive_data, format_partition_data
+from giggityflix_mgmt_peer.apps.drive_detection import DriveDetector
+from giggityflix_mgmt_peer.apps.drive_detection.utils import extract_manufacturer, format_drive_data, format_partition_data
 
 logger = logging.getLogger(__name__)
 

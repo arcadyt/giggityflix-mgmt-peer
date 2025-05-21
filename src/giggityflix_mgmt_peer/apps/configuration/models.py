@@ -1,3 +1,4 @@
+# src/giggityflix_mgmt_peer/models/configuration_model.py
 from django.db import models
 import json
 from typing import Any, Dict, List, Optional, Union
