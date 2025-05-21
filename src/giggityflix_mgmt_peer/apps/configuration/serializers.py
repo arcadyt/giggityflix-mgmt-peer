@@ -1,6 +1,6 @@
-# src/giggityflix_mgmt_peer/api/serializers.py (addition)
+"""Serializers for configuration models."""
 from rest_framework import serializers
-from giggityflix_mgmt_peer.apps.configuration.configuration_model import Configuration
+from giggityflix_mgmt_peer.apps.configuration.models import Configuration
 
 
 class ConfigurationSerializer(serializers.ModelSerializer):

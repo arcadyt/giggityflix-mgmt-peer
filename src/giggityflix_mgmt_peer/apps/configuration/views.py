@@ -1,14 +1,14 @@
-# src/giggityflix_mgmt_peer/views/configuration_views.py
+"""ViewSet for managing configuration properties."""
 from django.shortcuts import get_object_or_404
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from giggityflix_mgmt_peer.apps.configuration.configuration_model import Configuration
+from giggityflix_mgmt_peer.apps.configuration.models import Configuration
 from giggityflix_mgmt_peer.apps.configuration.serializers import (
     ConfigurationSerializer, ConfigurationValueSerializer
 )
-from giggityflix_mgmt_peer.apps.configuration.configuration_service import config_service
+from giggityflix_mgmt_peer.apps.configuration.service import config_service
 
 
 class ConfigurationViewSet(viewsets.ModelViewSet):

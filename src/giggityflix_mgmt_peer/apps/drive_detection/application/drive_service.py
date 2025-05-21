@@ -1,18 +1,19 @@
+"""Application service for drive detection."""
 import logging
 from typing import Dict, List
 
 from giggityflix_mgmt_peer.apps.drive_detection.detection import DriveDetectorFactory
 from giggityflix_mgmt_peer.apps.drive_detection.domain.models import DriveMapping, PhysicalDrive
-from giggityflix_mgmt_peer.apps.drive_detection.infrastructure.repositories import DriveRepository
+from giggityflix_mgmt_peer.apps.drive_detection.domain.interfaces import DriveRepositoryInterface
 
 # Set up logging
 logger = logging.getLogger(__name__)
 
 
-class DriveService:
+class DriveApplicationService:
     """Application service for detecting and managing drives."""
 
-    def __init__(self, drive_repository: DriveRepository):
+    def __init__(self, drive_repository: DriveRepositoryInterface):
         """
         Initialize the drive service with its dependencies.
         
@@ -90,14 +91,19 @@ class DriveService:
         return self.drive_repository.get_drive_mapping()
 
 
-# Singleton instance factory
-def get_drive_service() -> DriveService:
+# Singleton instance
+_drive_service = None
+
+
+def get_drive_service() -> DriveApplicationService:
     """
     Factory function to get or create the drive service singleton.
     
     Returns:
-        DriveService instance
+        DriveApplicationService instance
     """
-    from giggityflix_mgmt_peer.apps.drive_detection.infrastructure.repositories import get_drive_repository
-    
-    return DriveService(get_drive_repository())
+    global _drive_service
+    if _drive_service is None:
+        from giggityflix_mgmt_peer.apps.drive_detection.infrastructure.repositories import get_drive_repository
+        _drive_service = DriveApplicationService(get_drive_repository())
+    return _drive_service
