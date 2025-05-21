@@ -3,9 +3,9 @@ from rest_framework import viewsets, mixins, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from service import DriveService
-from models import PhysicalDrive, Partition
-# from apps.configuration.serializers import PhysicalDriveSerializer, PartitionSerializer, DriveStatsSerializer
+from application.drive_service import get_drive_service
+from infrastructure.orm import PhysicalDrive, Partition
+from interfaces.serializers import PhysicalDriveSerializer, PartitionSerializer, DriveStatsSerializer
 
 
 class PhysicalDriveViewSet(mixins.ListModelMixin,
@@ -17,7 +17,8 @@ class PhysicalDriveViewSet(mixins.ListModelMixin,
     @action(detail=False, methods=['post'])
     def refresh(self, request):
         """Refresh drives by detecting them again."""
-        result = DriveService.detect_and_persist_drives()
+        drive_service = get_drive_service()
+        result = drive_service.detect_and_persist_drives()
         return Response(result, status=status.HTTP_200_OK)
 
     @action(detail=False, methods=['get'])
