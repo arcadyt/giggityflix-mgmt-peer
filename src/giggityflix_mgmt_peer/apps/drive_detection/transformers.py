@@ -1,13 +1,12 @@
-# apps/drive_detection/transformers.py
 from typing import List, Dict, Tuple, Optional
 
 # Import domain models
-from domain.models import PhysicalDrive as DomainDrive
-from domain.models import DriveMapping
+from giggityflix_mgmt_peer.apps.drive_detection.domain.models import PhysicalDrive as DomainDrive
+from giggityflix_mgmt_peer.apps.drive_detection.domain.models import DriveMapping
 
 # Import ORM models
-from models import PhysicalDrive as OrmDrive
-from models import Partition as OrmPartition
+from giggityflix_mgmt_peer.apps.drive_detection.models import PhysicalDrive as OrmDrive
+from giggityflix_mgmt_peer.apps.drive_detection.models import Partition as OrmPartition
 
 
 def domain_to_orm_drive(domain_drive: DomainDrive) -> OrmDrive:
