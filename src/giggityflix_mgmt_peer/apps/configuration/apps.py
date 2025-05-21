@@ -1,24 +1,20 @@
 from django.apps import AppConfig
-
+from django.db.models.signals import post_delete
+from django.dispatch import receiver
+from .signals import configuration_changed
 
 class ConfigurationConfig(AppConfig):
-    default_auto_field = 'django.db.models.BigAutoField'
     name = 'giggityflix_mgmt_peer.apps.configuration'
-    label = 'configuration'
 
     def ready(self):
-        """Initialize configuration on startup."""
-        # Skip initialization if we're running tests or migrations
-        import sys
-        if any(cmd in sys.argv for cmd in ['makemigrations', 'migrate', 'collectstatic', 'test']):
-            return
+        # import receivers so they are registered          # one-liner
+        from . import receivers  # noqa
 
-        try:
-            # Avoid circular imports by importing here
-            from application.services import get_configuration_service
-            # Initialize configuration service
-            config_service = get_configuration_service()
-            config_service.initialize()
-        except ImportError:
-            # Silently fail during testing or when models aren't ready
-            pass
+
+# receivers.py (optional separate file) -------------------------
+from .signals import configuration_changed
+
+@receiver(configuration_changed)
+def invalidate_local_cache(sender, key, value, **kwargs):
+    from . import services
+    services._CACHE.pop(key, None)          # one-liner
