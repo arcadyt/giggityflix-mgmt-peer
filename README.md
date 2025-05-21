@@ -1,86 +1,121 @@
-# Resource Management Framework
+# Giggityflix Management Peer Service
 
-A Python framework for efficient IO and CPU resource management with parallel execution support.
+Resource management microservice for the Giggityflix media streaming platform with physical drive detection, configuration management, and resource pooling.
 
-## Components
+## Architecture
 
-- **Resource Pool Manager**: Controls allocation of IO and CPU resources
-- **Annotations**: Decorators for resource-managed operations
-- **Dependency Injection**: Simple DI container for service management
+- **Domain-Driven Design** - Structured around domain concepts with clear boundaries
+- **Django ORM** - For data persistence and REST API framework
+- **Strategy Pattern** - For OS-specific drive detection implementations 
+- **Resource Pooling** - Efficient CPU and IO management with concurrency controls
 
-## Core Features
+## Key Components
 
-### IO-Bound Operations
+### Drive Detection
 
-`@io_bound(param_name='filepath')` decorator manages access to IO resources, limiting concurrent operations per storage
-device:
+- Automatic physical drive and partition detection for Windows, Linux, and macOS
+- Cross-platform abstraction with strategy pattern for OS-specific implementations
+- Django ORM persistence with RESTful API
 
-```python
-@io_bound(param_name='filepath')
-def read_file(filepath: str) -> str:
-    with open(filepath, 'r') as f:
-        return f.read()
+### Configuration Service
+
+- Type-aware configuration system (string, integer, boolean, JSON, list)
+- Environment variable overrides
+- Signal-based cache invalidation
+- RESTful configuration management API
+
+### Resource Management
+
+- Intelligent CPU/IO task handling with automatic executor selection
+- Per-drive IO concurrency limits with dynamic scaling
+- Decorators for effortless resource management:
+  - `@io_bound()` - For filesystem and network operations
+  - `@cpu_bound()` - For compute-intensive tasks
+
+## Installation
+
+```bash
+# Clone repository
+git clone https://github.com/giggityflix/giggityflix-mgmt-peer.git
+cd giggityflix-mgmt-peer
+
+# Install dependencies
+poetry install
+
+# Run migrations
+poetry run python src/giggityflix_mgmt_peer/manage.py migrate
 ```
 
-### CPU-Bound Operations
+## Usage
 
-`@cpu_bound()` decorator executes operations in a process pool, preventing CPU saturation:
+### Starting the Service
 
-```python
-@cpu_bound()
-def compute_hash(data: bytes) -> str:
-    return hashlib.sha256(data).hexdigest()
+```bash
+# Start the Django server
+poetry run python src/giggityflix_mgmt_peer/manage.py runserver 0.0.0.0:8000
 ```
 
-Handles recursive function calls correctly using thread-local state tracking to prevent deadlocks:
+### API Endpoints
 
-```python
-@cpu_bound()
-def factorial(n: int) -> int:
-    if n <= 1:
-        return 1
-    return n * factorial(n - 1)  # Recursion works without deadlock
+```
+# Drive management
+GET    /api/drives/                # List all detected drives
+GET    /api/drives/{id}/           # Get drive details
+POST   /api/drives/refresh/        # Trigger drive detection
+
+# Partition management
+GET    /api/partitions/            # List all partitions
+GET    /api/partitions/{id}/       # Get partition details
+
+# Configuration management
+GET    /api/configurations/        # List all configurations
+GET    /api/configurations/{key}/  # Get configuration
+POST   /api/configurations/        # Create configuration
+PUT    /api/configurations/{key}/  # Update configuration
+PATCH  /api/configurations/{key}/  # Partial update
 ```
 
-### Parallel Execution
+### API Examples
 
-`execute_parallel()` runs multiple tasks concurrently:
+```powershell
+# List detected drives
+Invoke-WebRequest -Method GET -Uri "localhost:8000/api/drives/" | Select-Object -ExpandProperty Content
 
-```python
-# Run mixed task types in parallel
-results = await execute_parallel(
-    async_task(),  # Async function
-    (cpu_function, (arg1, arg2), {})  # (func, args, kwargs) tuple
-)
+# Get configurations
+Invoke-WebRequest -Method GET -Uri "localhost:8000/api/configurations/" | Select-Object -ExpandProperty Content
+
+# Refresh drive detection
+Invoke-WebRequest -Method POST -Uri "localhost:8000/api/drives/refresh/" | Select-Object -ExpandProperty Content
 ```
 
-## Implementation Details
+## Development
 
-### Drive-Specific IO Management
+### Command-line Utilities
 
-- Configurable per-drive IO concurrency limits
-- Automatic drive identification (Windows drives, Unix mount points)
-- Dynamic semaphore creation based on resource limits
+```bash
+# Detect drives (updates database)
+poetry run python src/giggityflix_mgmt_peer/manage.py detect_drives
 
-### CPU Management
+# Run tests
+poetry run pytest
 
-- Process/Thread pool with configurable worker count
-- Scalable execution metrics for performance tracking
-- Recursive call detection using thread-local storage to prevent executor deadlocks
-
-### Dependency Injection
-
-Type-based service resolution with factory support:
-
-```python
-container.register(ResourcePoolManager, manager)
-container.resolve(ResourcePoolManager)  # Returns registered instance
+# Create migrations
+poetry run python src/giggityflix_mgmt_peer/manage.py makemigrations
 ```
 
-## Configuration
+### Project Structure
 
-Environment variables control pool sizes and IO limits:
-
-- `PEER_CPU_WORKERS`: Maximum concurrent CPU tasks (default: CPU count)
-- `PEER_DEFAULT_IO_LIMIT`: Default IO operations per drive (default: 2)
-- `PEER_DRIVE_*_IO`: Per-drive IO limits
+```
+src/giggityflix_mgmt_peer/
+├── apps/                              # Django applications
+│   ├── configuration/                 # Configuration service
+│   └── drive_detection/               # Drive detection service
+│       ├── application/               # Application services
+│       ├── domain/                    # Domain models and interfaces
+│       ├── infrastructure/            # Repositories and ORM models
+│       ├── interfaces/                # API endpoints
+│       └── strategies/                # OS-specific implementations
+├── core/                              # Core framework components
+│   └── resource_pool/                 # Resource management
+└── manage.py                          # Django management script
+```
