@@ -4,7 +4,7 @@ from django.db import models
 
 class Configuration(models.Model):
     """Django ORM model for storing configuration properties."""
-    
+
     # Type choices for proper conversion
     TYPE_STRING = 'string'
     TYPE_INTEGER = 'integer'

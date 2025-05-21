@@ -3,24 +3,22 @@ import logging
 import os
 from typing import Any, Dict, Optional
 
-from django.utils import timezone
-
-from giggityflix_mgmt_peer.apps.configuration.domain.models import ConfigurationValue, ConfigurationChangeEvent
 from giggityflix_mgmt_peer.apps.configuration.domain.interfaces import (
     ConfigurationRepositoryInterface,
     ConfigurationEventPublisherInterface
 )
+from giggityflix_mgmt_peer.apps.configuration.domain.models import ConfigurationValue, ConfigurationChangeEvent
 
 logger = logging.getLogger(__name__)
 
 
 class ConfigurationService:
     """Application service for managing configuration properties."""
-    
+
     def __init__(
-        self, 
-        repository: ConfigurationRepositoryInterface,
-        event_publisher: ConfigurationEventPublisherInterface
+            self,
+            repository: ConfigurationRepositoryInterface,
+            event_publisher: ConfigurationEventPublisherInterface
     ):
         """
         Initialize the configuration service.
@@ -32,7 +30,7 @@ class ConfigurationService:
         self.repository = repository
         self.event_publisher = event_publisher
         self._cache: Dict[str, Any] = {}
-    
+
     def initialize(self) -> None:
         """Initialize the service, loading default configurations."""
         # Create default configurations if they don't exist
@@ -45,7 +43,7 @@ class ConfigurationService:
         self._cache.clear()
 
         logger.info("Configuration service loaded defaults and environment variables")
-    
+
     def _ensure_defaults(self) -> None:
         """Ensure default configurations exist in the database."""
         defaults = [
@@ -116,24 +114,24 @@ class ConfigurationService:
                     self.repository.save(config)
             except Exception as e:
                 logger.error(f"Error creating default configuration '{config_data['key']}': {e}")
-    
+
     def _load_from_environment(self) -> None:
         """Load configuration values from environment variables."""
         # Get all configurations
         configs = self.repository.get_all()
-        
+
         for key, config in configs.items():
             if not config.is_env_overridable or not config.env_variable:
                 continue
-                
+
             env_value = os.environ.get(config.env_variable)
             if env_value is not None:
                 old_value = config.value
-                
+
                 logger.info(f"Loading configuration '{config.key}' from environment variable '{config.env_variable}'")
                 config.value = env_value
                 self.repository.save(config)
-                
+
                 # Publish event
                 event = ConfigurationChangeEvent(
                     key=config.key,
@@ -142,7 +140,7 @@ class ConfigurationService:
                     value_type=config.value_type
                 )
                 self.event_publisher.publish_event(event)
-    
+
     def get(self, key: str, default: Any = None) -> Any:
         """
         Get a configuration value by key.
@@ -157,7 +155,7 @@ class ConfigurationService:
         # Check cache first
         if key in self._cache:
             return self._cache[key]
-            
+
         # Get from repository
         config = self.repository.get(key)
         if config:
@@ -165,9 +163,9 @@ class ConfigurationService:
             # Update cache
             self._cache[key] = value
             return value
-            
+
         return default
-    
+
     def set(self, key: str, value: Any, value_type: Optional[str] = None) -> bool:
         """
         Set a configuration value.
@@ -184,31 +182,31 @@ class ConfigurationService:
             # Get existing config or create new one
             config = self.repository.get(key)
             created = False
-            
+
             if not config:
                 created = True
                 config = ConfigurationValue(
                     key=key,
                     value_type=value_type or ConfigurationValue.TYPE_STRING
                 )
-                
+
             # Save old value for event
             old_value = None if created else config.value
-            
+
             # Set new value
             config.value = value
-            
+
             # If we're setting to the same value, skip save
             if old_value == config.value and not created:
                 return True
-                
+
             # Save to repository
             success = self.repository.save(config)
-            
+
             # Clear cache
             if key in self._cache:
                 del self._cache[key]
-                
+
             # Publish event
             if success:
                 event = ConfigurationChangeEvent(
@@ -218,13 +216,13 @@ class ConfigurationService:
                     value_type=config.value_type
                 )
                 self.event_publisher.publish_event(event)
-                
+
             return success
-            
+
         except Exception as e:
             logger.error(f"Error setting configuration '{key}': {e}")
             return False
-    
+
     def delete(self, key: str) -> bool:
         """
         Delete a configuration property.
@@ -240,16 +238,16 @@ class ConfigurationService:
             config = self.repository.get(key)
             if not config:
                 return False
-                
+
             old_value = config.value
-            
+
             # Delete from repository
             success = self.repository.delete(key)
-            
+
             # Clear cache
             if key in self._cache:
                 del self._cache[key]
-                
+
             # Publish event
             if success:
                 event = ConfigurationChangeEvent(
@@ -259,13 +257,13 @@ class ConfigurationService:
                     value_type=config.value_type
                 )
                 self.event_publisher.publish_event(event)
-                
+
             return success
-            
+
         except Exception as e:
             logger.error(f"Error deleting configuration '{key}': {e}")
             return False
-    
+
     def get_all(self) -> Dict[str, Any]:
         """
         Get all configuration values.
@@ -275,16 +273,16 @@ class ConfigurationService:
         """
         result = {}
         configs = self.repository.get_all()
-        
+
         for key, config in configs.items():
             result[key] = config.value
-            
+
         return result
-    
+
     def register_callback(self, callback, key: Optional[str] = None) -> None:
         """Register a callback for configuration changes."""
         self.event_publisher.register_callback(callback, key)
-    
+
     def unregister_callback(self, callback, key: Optional[str] = None) -> bool:
         """Unregister a callback."""
         return self.event_publisher.unregister_callback(callback, key)
@@ -305,7 +303,7 @@ def get_configuration_service() -> ConfigurationService:
     if _configuration_service is None:
         from giggityflix_mgmt_peer.apps.configuration.infrastructure.repositories import get_configuration_repository
         from giggityflix_mgmt_peer.apps.configuration.infrastructure.event_publisher import get_event_publisher
-        
+
         _configuration_service = ConfigurationService(
             repository=get_configuration_repository(),
             event_publisher=get_event_publisher()

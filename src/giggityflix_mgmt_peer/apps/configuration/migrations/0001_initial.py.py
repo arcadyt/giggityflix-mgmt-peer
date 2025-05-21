@@ -4,7 +4,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     initial = True
 
     dependencies = [
@@ -14,13 +13,22 @@ class Migration(migrations.Migration):
         migrations.CreateModel(
             name='Configuration',
             fields=[
-                ('key', models.CharField(help_text='Configuration property key', max_length=255, primary_key=True, serialize=False)),
-                ('value', models.TextField(blank=True, help_text='Current value of the configuration property', null=True)),
+                ('key', models.CharField(help_text='Configuration property key', max_length=255, primary_key=True,
+                                         serialize=False)),
+                ('value',
+                 models.TextField(blank=True, help_text='Current value of the configuration property', null=True)),
                 ('default_value', models.TextField(blank=True, help_text='Default value if not specified', null=True)),
-                ('value_type', models.CharField(choices=[('string', 'String'), ('integer', 'Integer'), ('float', 'Float'), ('boolean', 'Boolean'), ('json', 'JSON'), ('list', 'List')], default='string', help_text='Type of the configuration value', max_length=20)),
-                ('description', models.TextField(blank=True, help_text='Description of the configuration property', null=True)),
-                ('is_env_overridable', models.BooleanField(default=True, help_text='Whether environment variables can override this configuration')),
-                ('env_variable', models.CharField(blank=True, help_text='Environment variable name to use for override', max_length=255, null=True)),
+                ('value_type', models.CharField(
+                    choices=[('string', 'String'), ('integer', 'Integer'), ('float', 'Float'), ('boolean', 'Boolean'),
+                             ('json', 'JSON'), ('list', 'List')], default='string',
+                    help_text='Type of the configuration value', max_length=20)),
+                ('description',
+                 models.TextField(blank=True, help_text='Description of the configuration property', null=True)),
+                ('is_env_overridable', models.BooleanField(default=True,
+                                                           help_text='Whether environment variables can override this configuration')),
+                ('env_variable',
+                 models.CharField(blank=True, help_text='Environment variable name to use for override', max_length=255,
+                                  null=True)),
                 ('created_at', models.DateTimeField(auto_now_add=True)),
                 ('updated_at', models.DateTimeField(auto_now=True)),
             ],

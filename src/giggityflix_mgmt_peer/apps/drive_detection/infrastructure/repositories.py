@@ -2,10 +2,10 @@ from typing import List, Optional
 
 from django.db import transaction
 
-from giggityflix_mgmt_peer.apps.drive_detection.domain.models import PhysicalDrive as DomainDrive
 from giggityflix_mgmt_peer.apps.drive_detection.domain.models import DriveMapping
-from giggityflix_mgmt_peer.apps.drive_detection.infrastructure.orm import PhysicalDrive as OrmDrive
+from giggityflix_mgmt_peer.apps.drive_detection.domain.models import PhysicalDrive as DomainDrive
 from giggityflix_mgmt_peer.apps.drive_detection.infrastructure.orm import Partition as OrmPartition
+from giggityflix_mgmt_peer.apps.drive_detection.infrastructure.orm import PhysicalDrive as OrmDrive
 from giggityflix_mgmt_peer.apps.drive_detection.infrastructure.transformers import (
     domain_to_orm_drive, orm_to_domain_drive, orm_to_drive_mapping
 )
@@ -23,7 +23,7 @@ class DriveRepository:
         """
         orm_drives = OrmDrive.objects.all()
         return [orm_to_domain_drive(drive) for drive in orm_drives]
-    
+
     def get_drive_by_id(self, drive_id: str) -> Optional[DomainDrive]:
         """
         Get a drive by ID.
@@ -39,7 +39,7 @@ class DriveRepository:
             return orm_to_domain_drive(orm_drive)
         except OrmDrive.DoesNotExist:
             return None
-    
+
     def get_drive_mapping(self) -> DriveMapping:
         """
         Get a complete drive mapping from the database.
@@ -49,7 +49,7 @@ class DriveRepository:
         """
         orm_drives = OrmDrive.objects.all().prefetch_related('partitions')
         return orm_to_drive_mapping(orm_drives)
-    
+
     @transaction.atomic
     def save_drive(self, drive: DomainDrive) -> str:
         """
@@ -64,7 +64,7 @@ class DriveRepository:
         orm_drive = domain_to_orm_drive(drive)
         orm_drive.save()
         return orm_drive.id
-    
+
     @transaction.atomic
     def save_drive_mapping(self, drive_mapping: DriveMapping) -> None:
         """
@@ -85,17 +85,17 @@ class DriveRepository:
                     'filesystem_type': domain_drive.filesystem_type
                 }
             )
-            
+
             # Get all partitions for this drive
             partition_paths = drive_mapping.get_partitions_for_drive(domain_drive.id)
-            
+
             # Add or update partitions
             for mount_point in partition_paths:
                 OrmPartition.objects.update_or_create(
                     mount_point=mount_point,
                     defaults={'physical_drive': orm_drive}
                 )
-            
+
             # Remove partitions that no longer exist
             existing_partitions = list(orm_drive.partitions.values_list('mount_point', flat=True))
             deleted_partitions = set(existing_partitions) - set(partition_paths)
@@ -104,7 +104,7 @@ class DriveRepository:
                     mount_point__in=deleted_partitions,
                     physical_drive=orm_drive
                 ).delete()
-    
+
     @transaction.atomic
     def clear_all_drives(self) -> None:
         """Remove all drives and partitions from the database."""

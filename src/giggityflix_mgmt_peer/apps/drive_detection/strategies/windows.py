@@ -6,7 +6,8 @@ import string
 from typing import Dict, List
 
 from giggityflix_mgmt_peer.apps.drive_detection import DriveDetector
-from giggityflix_mgmt_peer.apps.drive_detection.strategies.utils import clean_string, extract_manufacturer, extract_disk_number
+from giggityflix_mgmt_peer.apps.drive_detection.strategies.utils import clean_string, extract_manufacturer, \
+    extract_disk_number
 from giggityflix_mgmt_peer.apps.drive_detection.strategies.utils import format_drive_data, format_partition_data
 
 logger = logging.getLogger(__name__)

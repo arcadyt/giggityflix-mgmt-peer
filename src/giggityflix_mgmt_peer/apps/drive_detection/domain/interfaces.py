@@ -6,7 +6,7 @@ from giggityflix_mgmt_peer.apps.drive_detection.domain.models import PhysicalDri
 
 class DriveRepositoryInterface(Protocol):
     """Interface for drive repository."""
-    
+
     def get_all_drives(self) -> List[PhysicalDrive]:
         """
         Get all drives from the storage.
@@ -15,7 +15,7 @@ class DriveRepositoryInterface(Protocol):
             List of domain drive models
         """
         ...
-    
+
     def get_drive_by_id(self, drive_id: str) -> Optional[PhysicalDrive]:
         """
         Get a drive by ID.
@@ -27,7 +27,7 @@ class DriveRepositoryInterface(Protocol):
             Domain drive model or None if not found
         """
         ...
-    
+
     def get_drive_mapping(self) -> DriveMapping:
         """
         Get a complete drive mapping from storage.
@@ -36,7 +36,7 @@ class DriveRepositoryInterface(Protocol):
             DriveMapping with all drives and their partitions
         """
         ...
-    
+
     def save_drive(self, drive: PhysicalDrive) -> str:
         """
         Save or update a drive.
@@ -48,7 +48,7 @@ class DriveRepositoryInterface(Protocol):
             The ID of the saved drive
         """
         ...
-    
+
     def save_drive_mapping(self, drive_mapping: DriveMapping) -> None:
         """
         Save a complete drive mapping.
@@ -57,7 +57,7 @@ class DriveRepositoryInterface(Protocol):
             drive_mapping: DriveMapping with drives and partitions to save
         """
         ...
-    
+
     def clear_all_drives(self) -> None:
         """Remove all drives and partitions from storage."""
         ...

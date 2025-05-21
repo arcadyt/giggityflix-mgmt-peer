@@ -4,11 +4,11 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from giggityflix_mgmt_peer.apps.configuration.models import Configuration
+from giggityflix_mgmt_peer.apps.configuration import get_configuration_service
+from giggityflix_mgmt_peer.apps.configuration.infrastructure.orm import Configuration
 from giggityflix_mgmt_peer.apps.configuration.serializers import (
     ConfigurationSerializer, ConfigurationValueSerializer
 )
-from giggityflix_mgmt_peer.apps.configuration.service import config_service
 
 
 class ConfigurationViewSet(viewsets.ModelViewSet):
@@ -17,6 +17,10 @@ class ConfigurationViewSet(viewsets.ModelViewSet):
     queryset = Configuration.objects.all()
     serializer_class = ConfigurationSerializer
     lookup_field = 'key'
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.config_service = get_configuration_service()
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -77,7 +81,7 @@ class ConfigurationViewSet(viewsets.ModelViewSet):
 
         if 'value' in serializer.validated_data:
             # Use configuration service to set value
-            success = config_service.set(key, serializer.validated_data['value'])
+            success = self.config_service.set(key, serializer.validated_data['value'])
             if not success:
                 return Response(
                     {"error": "Failed to update configuration value"},
@@ -92,11 +96,11 @@ class ConfigurationViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'])
     def values(self, request):
         """Get all configuration values as a dictionary."""
-        values = config_service.get_all()
+        values = self.config_service.get_all()
         return Response(values)
 
     @action(detail=False, methods=['post'])
     def refresh(self, request):
         """Refresh configuration from environment variables."""
-        config_service.initialize()
+        self.config_service.initialize()
         return Response({"status": "Configuration refreshed"})

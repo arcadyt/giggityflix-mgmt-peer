@@ -12,7 +12,8 @@ A Python framework for efficient IO and CPU resource management with parallel ex
 
 ### IO-Bound Operations
 
-`@io_bound(param_name='filepath')` decorator manages access to IO resources, limiting concurrent operations per storage device:
+`@io_bound(param_name='filepath')` decorator manages access to IO resources, limiting concurrent operations per storage
+device:
 
 ```python
 @io_bound(param_name='filepath')
@@ -48,8 +49,8 @@ def factorial(n: int) -> int:
 ```python
 # Run mixed task types in parallel
 results = await execute_parallel(
-    async_task(),                    # Async function
-    (cpu_function, (arg1, arg2), {}) # (func, args, kwargs) tuple
+    async_task(),  # Async function
+    (cpu_function, (arg1, arg2), {})  # (func, args, kwargs) tuple
 )
 ```
 

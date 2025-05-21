@@ -1,12 +1,10 @@
-from typing import List, Dict, Tuple, Optional
+from typing import List, Dict, Tuple
 
+from giggityflix_mgmt_peer.apps.drive_detection.domain.models import DriveMapping
 # Import domain models
 from giggityflix_mgmt_peer.apps.drive_detection.domain.models import PhysicalDrive as DomainDrive
-from giggityflix_mgmt_peer.apps.drive_detection.domain.models import DriveMapping
-
 # Import ORM models
 from giggityflix_mgmt_peer.apps.drive_detection.infrastructure.orm import PhysicalDrive as OrmDrive
-from giggityflix_mgmt_peer.apps.drive_detection.infrastructure.orm import Partition as OrmPartition
 
 
 def domain_to_orm_drive(domain_drive: DomainDrive) -> OrmDrive:

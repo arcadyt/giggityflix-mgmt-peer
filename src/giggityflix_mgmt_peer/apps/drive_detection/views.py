@@ -3,9 +3,9 @@ from rest_framework import viewsets, mixins, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from application.drive_service import get_drive_service
-from infrastructure.orm import PhysicalDrive, Partition
-from interfaces.serializers import PhysicalDriveSerializer, PartitionSerializer, DriveStatsSerializer
+from ..drive_detection.application.drive_service import get_drive_service
+from ..drive_detection.infrastructure.orm import PhysicalDrive, Partition
+from ..drive_detection.interfaces.serializers import PhysicalDriveSerializer, PartitionSerializer, DriveStatsSerializer
 
 
 class PhysicalDriveViewSet(mixins.ListModelMixin,

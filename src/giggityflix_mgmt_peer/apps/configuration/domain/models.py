@@ -1,6 +1,6 @@
 """Domain models for configuration management."""
-from typing import Any, Dict, Optional
 import json
+from typing import Any, Optional
 
 
 class ConfigurationValue:
@@ -19,14 +19,14 @@ class ConfigurationValue:
     ]
 
     def __init__(
-        self,
-        key: str,
-        value: Any = None,
-        default_value: Any = None,
-        value_type: str = TYPE_STRING,
-        description: str = "",
-        is_env_overridable: bool = True,
-        env_variable: Optional[str] = None
+            self,
+            key: str,
+            value: Any = None,
+            default_value: Any = None,
+            value_type: str = TYPE_STRING,
+            description: str = "",
+            is_env_overridable: bool = True,
+            env_variable: Optional[str] = None
     ):
         self.key = key
         self._value = value

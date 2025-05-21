@@ -3,8 +3,8 @@ import logging
 from typing import Dict, List
 
 from giggityflix_mgmt_peer.apps.drive_detection.detection import DriveDetectorFactory
-from giggityflix_mgmt_peer.apps.drive_detection.domain.models import DriveMapping, PhysicalDrive
 from giggityflix_mgmt_peer.apps.drive_detection.domain.interfaces import DriveRepositoryInterface
+from giggityflix_mgmt_peer.apps.drive_detection.domain.models import DriveMapping, PhysicalDrive
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -43,7 +43,7 @@ class DriveApplicationService:
 
         # Create a domain model representation
         drive_mapping = DriveMapping()
-        
+
         # Add drives to the mapping
         for drive_data in drives_data:
             drive_id = drive_data['id']
@@ -56,22 +56,22 @@ class DriveApplicationService:
                 filesystem_type=drive_data.get('filesystem_type', 'Unknown')
             )
             drive_mapping.add_physical_drive(domain_drive)
-        
+
         # Add partitions to the mapping
         for partition_data in partitions_data:
             mount_point = partition_data['mount_point']
             physical_drive_id = partition_data.get('physical_drive_id')
             if physical_drive_id:
                 drive_mapping.add_partition_mapping(mount_point, physical_drive_id)
-        
+
         # Persist the domain model to the database using the repository
         self.drive_repository.save_drive_mapping(drive_mapping)
-        
+
         return {
             "drives_added": len(drives_data),
             "partitions_added": len(partitions_data)
         }
-    
+
     def get_all_drives(self) -> List[PhysicalDrive]:
         """
         Get all drives from the database.
@@ -80,7 +80,7 @@ class DriveApplicationService:
             List of domain drive models
         """
         return self.drive_repository.get_all_drives()
-    
+
     def get_drive_mapping(self) -> DriveMapping:
         """
         Get the complete drive mapping from the database.

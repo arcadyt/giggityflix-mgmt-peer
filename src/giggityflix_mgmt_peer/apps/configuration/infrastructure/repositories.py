@@ -1,8 +1,5 @@
 """Repository implementations for configuration management."""
-import json
 from typing import Dict, Optional
-
-from django.utils import timezone
 
 from giggityflix_mgmt_peer.apps.configuration.domain.models import ConfigurationValue
 from giggityflix_mgmt_peer.apps.configuration.infrastructure.orm import Configuration as ConfigurationOrm
@@ -10,7 +7,7 @@ from giggityflix_mgmt_peer.apps.configuration.infrastructure.orm import Configur
 
 class DjangoConfigurationRepository:
     """Django ORM-based repository for configuration."""
-    
+
     def get(self, key: str) -> Optional[ConfigurationValue]:
         """
         Get a configuration value by key.
@@ -26,7 +23,7 @@ class DjangoConfigurationRepository:
             return self._orm_to_domain(orm_config)
         except ConfigurationOrm.DoesNotExist:
             return None
-    
+
     def save(self, config: ConfigurationValue) -> bool:
         """
         Save a configuration value.
@@ -52,7 +49,7 @@ class DjangoConfigurationRepository:
             return True
         except Exception:
             return False
-    
+
     def delete(self, key: str) -> bool:
         """
         Delete a configuration value.
@@ -68,7 +65,7 @@ class DjangoConfigurationRepository:
             return result[0] > 0
         except Exception:
             return False
-    
+
     def get_all(self) -> Dict[str, ConfigurationValue]:
         """
         Get all configuration values.
@@ -78,13 +75,13 @@ class DjangoConfigurationRepository:
         """
         result = {}
         orm_configs = ConfigurationOrm.objects.all()
-        
+
         for orm_config in orm_configs:
             domain_config = self._orm_to_domain(orm_config)
             result[domain_config.key] = domain_config
-        
+
         return result
-    
+
     def _orm_to_domain(self, orm_config: ConfigurationOrm) -> ConfigurationValue:
         """Convert ORM model to domain model."""
         return ConfigurationValue(

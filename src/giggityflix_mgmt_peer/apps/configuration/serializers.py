@@ -1,6 +1,7 @@
 """Serializers for configuration models."""
 from rest_framework import serializers
-from giggityflix_mgmt_peer.apps.configuration.models import Configuration
+
+from giggityflix_mgmt_peer.apps.configuration.infrastructure.orm import Configuration
 
 
 class ConfigurationSerializer(serializers.ModelSerializer):
